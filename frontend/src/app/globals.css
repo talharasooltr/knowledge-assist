@@ -1,0 +1,85 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap");
+
+:root {
+  --ink: #18212b;
+  --muted: #66727d;
+  --line: #dce3e8;
+  --paper: #f5f7f8;
+  --surface: #ffffff;
+  --accent: #d95d39;
+  --accent-dark: #b44327;
+  --accent-soft: #fff0ea;
+  --green: #387b63;
+  --shadow: 0 18px 50px rgba(24, 33, 43, .08);
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: "DM Sans", sans-serif; }
+button, input, textarea, select { font: inherit; }
+button { cursor: pointer; }
+
+.shell { min-height: 100vh; display: flex; }
+.login-shell { width: 100%; display: grid; grid-template-columns: .9fr 1.1fr; min-height: 100vh; }
+.login-aside { padding: 7vw; background: #1f2c35; color: #fff; display: flex; flex-direction: column; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 12px; font: 700 1.05rem "Space Grotesk", sans-serif; }
+.brand-mark { width: 34px; height: 34px; display: grid; place-items: center; background: var(--accent); color: #fff; border-radius: 10px; }
+.login-aside h1 { max-width: 440px; margin: 0 0 18px; font: 600 clamp(2.5rem, 5vw, 5rem)/.98 "Space Grotesk", sans-serif; letter-spacing: -.05em; }
+.login-aside p { max-width: 420px; color: #b8c4ca; line-height: 1.7; }
+.aside-note { color: #87969f; font-size: .8rem; }
+.login-panel { display: grid; place-items: center; padding: 32px; }
+.login-card { width: min(100%, 410px); background: var(--surface); border: 1px solid var(--line); padding: 38px; border-radius: 18px; box-shadow: var(--shadow); }
+.login-card h2 { margin: 0 0 8px; font: 600 1.8rem "Space Grotesk", sans-serif; }
+.login-card > p { margin: 0 0 28px; color: var(--muted); }
+.field { display: grid; gap: 7px; margin-top: 16px; }
+.field label { font-size: .78rem; font-weight: 700; color: #4e5b65; }
+.field input, .field select, .field textarea { width: 100%; border: 1px solid var(--line); border-radius: 9px; padding: 12px 13px; color: var(--ink); background: #fff; outline: none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.role-toggle { display: flex; gap: 8px; margin: 18px 0 2px; }
+.role-toggle button, .tab { border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 9px 13px; color: var(--muted); }
+.role-toggle button.active, .tab.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+.primary, .danger { border: 0; border-radius: 9px; padding: 12px 16px; color: #fff; font-weight: 700; }
+.primary { background: var(--accent); }
+.primary:hover { background: var(--accent-dark); }
+.danger { background: #a63c35; }
+.full { width: 100%; margin-top: 22px; }
+.error { margin-top: 14px; color: #a63c35; font-size: .85rem; }
+
+.app-shell { width: 100%; display: grid; grid-template-columns: 235px 1fr; }
+.sidebar { background: #202c34; color: #fff; padding: 25px 17px; display: flex; flex-direction: column; gap: 28px; }
+.sidebar .brand-mark { background: var(--accent); }
+.sidebar-user { padding: 13px; border: 1px solid #40505a; border-radius: 10px; color: #c1ccd1; font-size: .8rem; }
+.nav { display: grid; gap: 7px; }
+.nav button { text-align: left; border: 0; border-radius: 8px; padding: 12px; background: transparent; color: #abb8be; }
+.nav button:hover, .nav button.active { background: #31414b; color: #fff; }
+.signout { margin-top: auto; border: 1px solid #52616a; color: #dce3e7; background: transparent; padding: 10px; border-radius: 8px; }
+.main { min-width: 0; padding: 34px clamp(20px, 4vw, 64px); }
+.topline { display: flex; justify-content: space-between; align-items: start; gap: 20px; margin-bottom: 28px; }
+.eyebrow { color: var(--accent); font-size: .73rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; }
+h1, h2, h3 { font-family: "Space Grotesk", sans-serif; }
+.topline h1 { margin: 6px 0; font-size: clamp(1.8rem, 3vw, 2.8rem); letter-spacing: -.04em; }
+.subtle { color: var(--muted); }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 8px 25px rgba(24,33,43,.03); }
+.chat-panel { min-height: 65vh; display: flex; flex-direction: column; padding: clamp(18px, 3vw, 34px); }
+.chat-list { flex: 1; display: grid; align-content: start; gap: 15px; }
+.empty { display: grid; place-items: center; align-content: center; min-height: 45vh; text-align: center; color: var(--muted); }
+.empty strong { display: block; color: var(--ink); font: 600 1.3rem "Space Grotesk", sans-serif; margin-bottom: 8px; }
+.message { max-width: 760px; padding: 14px 16px; border-radius: 12px; line-height: 1.6; white-space: pre-wrap; }
+.message.user { justify-self: end; background: var(--ink); color: #fff; }
+.message.assistant { background: #eef3f1; color: var(--ink); }
+.chat-form { display: flex; gap: 10px; margin-top: 22px; }
+.chat-form textarea { flex: 1; resize: none; min-height: 48px; max-height: 140px; border: 1px solid var(--line); border-radius: 10px; padding: 13px; outline: none; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 9px; margin-bottom: 18px; }
+.tab { font-size: .84rem; }
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.card { padding: 22px; }
+.card h3 { margin: 0 0 7px; font-size: 1rem; }
+.card p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.55; }
+.upload { border: 1.5px dashed #bbc7ce; border-radius: 12px; padding: 30px; text-align: center; background: #fbfcfc; }
+.upload input { max-width: 100%; margin: 14px 0; }
+.list { display: grid; gap: 9px; margin-top: 18px; }
+.list-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding: 12px 0; font-size: .88rem; }
+.list-row small { color: var(--muted); }
+.mini-button { border: 1px solid var(--line); background: #fff; color: var(--ink); border-radius: 7px; padding: 7px 10px; font-size: .75rem; }
+.status { margin-top: 14px; padding: 11px 13px; border-radius: 8px; background: #edf7f1; color: var(--green); font-size: .84rem; }
+@media (max-width: 800px) { .login-shell { grid-template-columns: 1fr; } .login-aside { min-height: 330px; padding: 32px; } .login-aside h1 { font-size: 2.8rem; } .app-shell { grid-template-columns: 1fr; } .sidebar { padding: 16px; gap: 14px; } .nav { display: flex; overflow-x: auto; } .nav button { white-space: nowrap; } .signout { margin-top: 0; } .main { padding: 25px 16px; } .grid { grid-template-columns: 1fr; } .topline { display: block; } }

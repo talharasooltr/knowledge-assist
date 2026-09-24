@@ -1,5 +1,6 @@
 import os
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from routes.admin import user_manage
 from routes.admin import data_manage
@@ -13,6 +14,18 @@ from routes.user import user_manage as user_user_manage
 from routes.user import user_auth
 
 app = FastAPI()
+app.add_middleware(
+	CORSMiddleware,
+	allow_origins=[
+		"http://localhost:3000",
+		"http://localhost:3001",
+		"http://127.0.0.1:3000",
+		"http://127.0.0.1:3001",
+	],
+	allow_credentials=True,
+	allow_methods=["*"],
+	allow_headers=["*"],
+)
 
 # Admin endpoint
 app.include_router(user_manage.router)

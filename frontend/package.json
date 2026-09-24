@@ -1,0 +1,26 @@
+{
+  "name": "knowledge-assistant-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Knowledge Assistant web workspace",
+  "scripts": {
+    "dev": "PORT=3001 next dev",
+    "build": "NODE_ENV=production next build",
+    "start": "next start -p 3001",
+    "lint": "eslint",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "next": "16.2.3",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.3",
+    "typescript": "^5"
+  }
+}

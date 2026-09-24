@@ -1,44 +1,40 @@
-# Frontend Service (Streamlit)
+# Knowledge Assistant Frontend
 
-This directory contains the frontend UI for the Knowledge Assistant multi source. It provides a web-based interface for users and admins to interact with the backend services.
+This directory contains the Next.js web application for the Knowledge Assistant. It provides the sign-in experience, knowledge chat, document management, and administrator workspace.
 
 ## Local Development
 
-### 1. Setup
+From the repository root, install the frontend dependencies and start the development server:
 
-1.  **From the repository root, create the shared virtual environment if it does not exist yet.** If `.venv` was already created for the backend, skip the first command. Do not create an environment inside `frontend/`:
-    ```bash
-    python3 -m venv .venv
-    source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-    ```
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-2.  **Install Dependencies**:
-    ```bash
-    python -m pip install -r frontend/requirements.txt
-    ```
+The frontend is available at `http://localhost:3001`.
 
-### 2. Environment Variable
+On Windows PowerShell, use the same commands:
 
-The frontend needs to know the URL of the backend. This is configured via the `BACKEND_URL` environment variable.
+```powershell
+cd frontend
+npm install
+npm run dev
+```
 
-* **For local development**: Set this variable to point to your locally running backend.
-    ```bash
-    export BACKEND_URL="[http://127.0.0.1:8000](http://127.0.0.1:8000)"
-    ```
+## Backend Connection
 
-### 3. Running the Application
+Set `NEXT_PUBLIC_BACKEND_URL` when the backend is not running at the default local address:
 
-* **For Streamlit**:
-    ```bash
-    streamlit run home.py
-    ```
-    The application will be available at `http://localhost:8501`.
+```env
+NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
+```
 
-## Connecting to the Backend
+The frontend uses the backend API for authentication, chat, document uploads, document management, and administrator user management.
 
-The application code (`home.py`) is designed to read the `BACKEND_URL` from the environment.
+## Production Build
 
-```python
-import os
-BASE_URL = os.getenv("BACKEND_URL", "[http://127.0.0.1:8000](http://127.0.0.1:8000)")
+```bash
+npm run type-check
+npm run build
 ```

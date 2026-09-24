@@ -43,4 +43,4 @@ Knowledge Assistant is useful for teams and individuals who need to work with in
 ## Technical Documentation
 
 - [Backend README](backend/README.md): Backend setup, authentication, content management, database, ingestion, retrieval, and API details.
-- [Frontend README](frontend/README.md): User workspace, Streamlit interface, frontend setup, and backend connection details.
+- [Frontend README](frontend/README.md): Next.js user workspace, frontend setup, API connection, and production build details.
