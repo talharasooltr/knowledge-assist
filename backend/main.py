@@ -1,6 +1,5 @@
 import os
 from fastapi import FastAPI
-from dotenv import load_dotenv
 
 from routes.admin import user_manage
 from routes.admin import data_manage
@@ -13,7 +12,6 @@ from routes.user import vectordb_manage as user_vectordb_manage
 from routes.user import user_manage as user_user_manage
 from routes.user import user_auth
 
-load_dotenv()
 app = FastAPI()
 
 # Admin endpoint

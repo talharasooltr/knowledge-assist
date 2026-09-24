@@ -55,11 +55,9 @@ coverage.xml
 *.mo
 *.pot
 
-# Django stuff:
+# Local development files:
 *.log
 local_settings.py
-db.sqlite3
-db.sqlite3-journal
 
 # Flask stuff:
 instance/
@@ -109,6 +107,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+node_modules/
 
 # Spyder project settings
 .spyderproject
@@ -129,10 +128,6 @@ dmypy.json
 .pyre/
 
 # Project-specific
-# Vector databases
-chroma/
-sqlite/
-*.sqlite3
 
 # Data files
 data/*.pdf
@@ -142,6 +137,7 @@ data/*.pdf
 
 # IDE
 .vscode/
+!.vscode/settings.json
 .idea/
 *.swp
 *.swo
@@ -160,9 +156,8 @@ Thumbs.db
 # Cursor IDE
 .cursorignore 
 
-# Ignore data and sqlite folders
+# Ignore local data folders
 /data/
-/sqlite/ 
 admin_client.log
 user_client.log
 server_events.log 

@@ -3,13 +3,15 @@ uvicorn
 openai
 langchain
 langchain_text_splitters
-chromadb
 pypdf
 python-dotenv
 tiktoken
 langchain-community
 langchain-openai
-langchain_chroma
+sqlalchemy
+psycopg[binary]
+pgvector
+alembic
 python-multipart
 pydantic
 # pytest

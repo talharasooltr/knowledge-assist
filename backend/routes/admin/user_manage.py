@@ -4,7 +4,7 @@ from fastapi.security import HTTPBasicCredentials
 from pydantic import BaseModel
 from typing import List
 from routes.admin.admin_auth import verify_admin_credentials
-import utils.sqlitedb as db
+import utils.database_repository as db
 from utils.logger import log_event
 
 router = APIRouter()

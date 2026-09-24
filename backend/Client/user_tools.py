@@ -51,13 +51,13 @@ class UserToolsManager:
     def change_password(self):
         print("Not implemented. Please contact admin.")
 
-    def delete_my_pdf_from_chroma_by_filename(self):
+    def delete_my_pdf_from_vector_store_by_filename(self):
         filename = input("Enter filename to remove from vectordb: ").strip()
         res = requests.delete(f"{BASE_URL}/user/vectordb/pdf/one/{filename}", auth=self.auth)
         log_client_event(self.username, "user_remove_pdf_vectordb", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
-    def delete_all_my_pdfs_from_chroma(self):
+    def delete_all_my_pdfs_from_vector_store(self):
         res = requests.delete(f"{BASE_URL}/user/vectordb/pdf/all", auth=self.auth)
         log_client_event(self.username, "user_remove_all_pdfs_vectordb", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
@@ -116,9 +116,9 @@ class UserToolsManager:
             elif choice == "8":
                 self.delete_all_my_pdfs_from_data()
             elif choice == "9":
-                self.delete_my_pdf_from_chroma_by_filename()
+                self.delete_my_pdf_from_vector_store_by_filename()
             elif choice == "10":
-                self.delete_all_my_pdfs_from_chroma()
+                self.delete_all_my_pdfs_from_vector_store()
             elif choice == "0":
                 log_client_event(self.username, "user_exit", "success", "user exited", is_admin=False)
                 print("Goodbye!")

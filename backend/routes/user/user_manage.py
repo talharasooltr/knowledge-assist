@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-import utils.sqlitedb as db
+import utils.database_repository as db
 from utils.logger import log_event
 
 router = APIRouter()

@@ -1,13 +1,14 @@
-import os
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body, Form
 from fastapi.security import HTTPBasicCredentials
 from typing import List
 from routes.admin.admin_auth import verify_admin_credentials
-from utils.sqlitedb import add_pdf, get_all_pdfs, delete_pdf_by_filename, get_all_ingested_pdfs, get_pdf_filepath_by_filename
+from utils.database_repository import add_pdf, get_all_pdfs, delete_pdf_by_filename, get_all_ingested_pdfs, get_pdf_filepath_by_filename
 from utils.logger import log_event
 
-PERSIST_DIR = os.getenv("PERSIST_DIR", "")
-DATA_DIR = os.path.join(PERSIST_DIR, "data")
+from utils.config import UPLOADS_DIR
+
+DATA_DIR = UPLOADS_DIR / "data"
 
 router = APIRouter()
 
@@ -23,18 +24,18 @@ def upload_pdf(
         if not file.filename.lower().endswith(".pdf"):
             continue
         if is_public:
-            save_dir = os.path.join(DATA_DIR, "public")
-            db_path = os.path.join("public", file.filename)
+            save_dir = DATA_DIR / "public"
+            db_path = Path("public") / file.filename
             uploaded_by = "admin"
         else:
             uploaded_by = "admin"
-            save_dir = os.path.join(DATA_DIR, uploaded_by)
-            db_path = os.path.join(uploaded_by, file.filename)
-        os.makedirs(save_dir, exist_ok=True)
-        file_path = os.path.join(save_dir, file.filename)
-        with open(file_path, "wb") as f:
+            save_dir = DATA_DIR / uploaded_by
+            db_path = Path(uploaded_by) / file.filename
+        save_dir.mkdir(parents=True, exist_ok=True)
+        file_path = save_dir / file.filename
+        with file_path.open("wb") as f:
             f.write(file.file.read())
-        add_pdf(file.filename, uploaded_by, is_public, db_path)
+        add_pdf(file.filename, uploaded_by, is_public, str(db_path))
         uploaded.append(file.filename)
         log_event(credentials.username, "admin_upload_pdf", f"filename={file.filename}, is_public={is_public}")
     if not uploaded:
@@ -60,25 +61,25 @@ def delete_pdf(
     deleted = []
     errors = []
     for filename in filenames:
-        from utils.sqlitedb import get_all_pdfs
+        from utils.database_repository import get_all_pdfs
         pdfs = get_all_pdfs()
         pdf_info = next((pdf for pdf in pdfs if pdf["filename"] == filename), None)
         if not pdf_info:
             errors.append({"filename": filename, "error": "Not found in database"})
             continue
         if pdf_info["is_public"] == 1:
-            abs_file_path = os.path.join(DATA_DIR, "public", filename)
+            abs_file_path = DATA_DIR / "public" / filename
         else:
-            abs_file_path = os.path.join(DATA_DIR, pdf_info["uploaded_by"], filename)
-        if not os.path.exists(abs_file_path):
+            abs_file_path = DATA_DIR / pdf_info["uploaded_by"] / filename
+        if not abs_file_path.exists():
             errors.append({"filename": filename, "error": "File not found on disk"})
             continue
         try:
-            os.remove(abs_file_path)
+            abs_file_path.unlink()
         except Exception as e:
             errors.append({"filename": filename, "error": str(e)})
             continue
-        from utils.sqlitedb import delete_pdf_by_id
+        from utils.database_repository import delete_pdf_by_id
         fileid = pdf_info["id"]
         success = delete_pdf_by_id(fileid)
         if not success:
@@ -90,7 +91,7 @@ def delete_pdf(
 
 @router.post("/admin/pdf/delete_public")
 def delete_all_public_pdfs(credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
-    from utils.sqlitedb import get_all_pdfs
+    from utils.database_repository import get_all_pdfs
     deleted = []
     errors = []
     pdfs = get_all_pdfs()
@@ -98,16 +99,16 @@ def delete_all_public_pdfs(credentials: HTTPBasicCredentials = Depends(verify_ad
         if pdf["is_public"] != 1:
             continue
         filename = pdf["filename"]
-        abs_file_path = os.path.join(DATA_DIR, "public", filename)
-        if not os.path.exists(abs_file_path):
+        abs_file_path = DATA_DIR / "public" / filename
+        if not abs_file_path.exists():
             errors.append({"filename": filename, "error": "File not found on disk"})
             continue
         try:
-            os.remove(abs_file_path)
+            abs_file_path.unlink()
         except Exception as e:
             errors.append({"filename": filename, "error": str(e)})
             continue
-        from utils.sqlitedb import delete_pdf_by_filename
+        from utils.database_repository import delete_pdf_by_filename
         success = delete_pdf_by_filename(filename)
         if not success:
             errors.append({"filename": filename, "error": "Failed to delete from database"})

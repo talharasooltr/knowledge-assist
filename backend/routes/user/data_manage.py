@@ -1,13 +1,14 @@
-import os
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body, Form
 from fastapi.security import HTTPBasicCredentials
 from typing import List
 from routes.user.user_auth import verify_user_credentials
-import utils.sqlitedb as db
+import utils.database_repository as db
 from utils.logger import log_event
 
-PERSIST_DIR = os.getenv("PERSIST_DIR", "")
-DATA_DIR = os.path.join(PERSIST_DIR, "data")
+from utils.config import UPLOADS_DIR
+
+DATA_DIR = UPLOADS_DIR / "data"
 
 router = APIRouter()
 
@@ -22,16 +23,16 @@ def upload_pdf(
         if not file.filename.lower().endswith(".pdf"):
             continue
         if is_public:
-            save_dir = os.path.join(DATA_DIR, "public")
-            db_path = os.path.join("public", file.filename)
+            save_dir = DATA_DIR / "public"
+            db_path = Path("public") / file.filename
         else:
-            save_dir = os.path.join(DATA_DIR, credentials.username)
-            db_path = os.path.join(credentials.username, file.filename)
-        os.makedirs(save_dir, exist_ok=True)
-        file_path = os.path.join(save_dir, file.filename)
-        with open(file_path, "wb") as f:
+            save_dir = DATA_DIR / credentials.username
+            db_path = Path(credentials.username) / file.filename
+        save_dir.mkdir(parents=True, exist_ok=True)
+        file_path = save_dir / file.filename
+        with file_path.open("wb") as f:
             f.write(file.file.read())
-        db.add_pdf(file.filename, credentials.username, is_public, db_path)
+        db.add_pdf(file.filename, credentials.username, is_public, str(db_path))
         uploaded.append(file.filename)
         log_event(credentials.username, "upload_pdf", f"filename={file.filename}, is_public={is_public}")
     if not uploaded:
@@ -61,14 +62,14 @@ def delete_pdf(
             errors.append({"filename": filename, "error": "Not found in database"})
             continue
         if pdf_info["is_public"] == 1:
-            abs_file_path = os.path.join(DATA_DIR, "public", filename)
+            abs_file_path = DATA_DIR / "public" / filename
         else:
-            abs_file_path = os.path.join(DATA_DIR, credentials.username, filename)
-        if not os.path.exists(abs_file_path):
+            abs_file_path = DATA_DIR / credentials.username / filename
+        if not abs_file_path.exists():
             errors.append({"filename": filename, "error": "File not found on disk"})
             continue
         try:
-            os.remove(abs_file_path)
+            abs_file_path.unlink()
         except Exception as e:
             errors.append({"filename": filename, "error": str(e)})
             continue
@@ -82,7 +83,7 @@ def delete_pdf(
 
 @router.get("/user/ingested_pdfs")
 def list_ingested_pdfs(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
-    from utils.sqlitedb import get_ingested_pdfs_by_user
+    from utils.database_repository import get_ingested_pdfs_by_user
     pdfs = get_ingested_pdfs_by_user(credentials.username)
     log_event(credentials.username, "list_ingested_pdfs", f"count={len(pdfs)}")
     return {"ingested_pdfs": pdfs}

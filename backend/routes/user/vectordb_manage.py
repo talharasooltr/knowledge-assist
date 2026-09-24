@@ -4,7 +4,7 @@ from fastapi.security import HTTPBasicCredentials
 from routes.user.user_auth import verify_user_credentials
 import utils.ingest as ingest
 import utils.vectordb as vectordb
-from utils.sqlitedb import get_ingested_pdfs_by_user, delete_ingested_pdf_by_id
+from utils.database_repository import get_ingested_pdfs_by_user, delete_ingested_pdf_by_id
 from utils.logger import log_event
 
 router = APIRouter()

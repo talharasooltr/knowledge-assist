@@ -1,34 +1,46 @@
 # Knowledge Assistant
 
-Multi-source AI knowledge assistant for document ingestion, semantic search, and RAG-powered question answering.
+Knowledge Assistant is a multi-source AI workspace that helps people collect knowledge from PDFs, images, web pages, URLs, and audio, then ask questions and receive answers grounded in that knowledge.
 
-The application consists of a FastAPI backend and a Streamlit frontend.
+Instead of searching through every source manually, users can bring their information into one place and use natural-language questions to find relevant content, compare information, and generate RAG-powered answers.
 
-For local development, use one shared `.venv` located at the repository root. Both the backend and frontend use this same virtual environment; do not create separate virtual environments inside `backend/` or `frontend/`.
+The platform provides separate experiences for regular users and administrators. Users can add and explore knowledge, while administrators can manage users, shared content, access, and system activity.
 
-## Project Structure
+## What It Does
+
+- **Collect knowledge from many sources**: Bring together PDFs, images, web pages, URLs, and audio in one knowledge workspace.
+- **Understand and organize content**: Convert source content into information that can be searched by meaning, not only by exact keywords.
+- **Answer questions with context**: Ask questions in natural language and receive answers based on the content you have provided.
+- **Keep answers connected to sources**: Use the relevant documents and source content behind an answer to make the results easier to review.
+- **Support private and shared knowledge**: Keep personal content separated while allowing administrators to manage public or shared resources.
+- **Manage knowledge over time**: Upload, process, review, and remove content as the knowledge base changes.
+
+## Who It Is For
+
+Knowledge Assistant is useful for teams and individuals who need to work with information spread across documents, media, and online sources. It can support research, internal knowledge sharing, document-based assistance, and question answering over a growing collection of content.
+
+## How It Works
+
+1. Add information from one or more supported sources.
+2. The assistant processes and organizes the content.
+3. Ask a question in everyday language.
+4. The assistant finds the most relevant context and generates an answer using that context.
+
+## Project Areas
 
 ```
 .
 ├── backend/
 │   ├── README.md
-│   └── ... (FastAPI API and RAG services)
+│   └── ... (application services and knowledge processing)
 │
 ├── frontend/
 │   ├── README.md
-│   └── ... (Streamlit interface)
+│   └── ... (user and administrator workspace)
 │
 ```
 
-## Features
-
-* **Dual User Roles**: Separate interfaces and permissions for regular Users and Admins.
-* **User Management**: Admins can add, delete, and manage user credentials.
-* **Data Management**: Users and Admins can upload and manage PDF documents.
-* **VectorDB Integration**: Uploaded documents can be ingested into a vector database for RAG.
-* **Interactive Chat**: Users can chat with the RAG model, which utilizes the ingested documents.
-
 ## Technical Documentation
 
-- [Backend README](backend/README.md): API, authentication, document management, RAG services, configuration, and backend development.
-- [Frontend README](frontend/README.md): Streamlit interface, frontend configuration, and local development.
+- [Backend README](backend/README.md): Backend setup, authentication, content management, database, ingestion, retrieval, and API details.
+- [Frontend README](frontend/README.md): User workspace, Streamlit interface, frontend setup, and backend connection details.

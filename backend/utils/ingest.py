@@ -1,15 +1,13 @@
-import os
-from dotenv import load_dotenv
+from pathlib import Path
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
-from utils.sqlitedb import get_all_pdfs, get_pdfs_by_user, ingest
+from utils.database_repository import get_all_pdfs, get_pdfs_by_user, ingest
 from utils.vectordb import insert_new_chunks
 
-load_dotenv(".env")
+from utils.config import UPLOADS_DIR
 
-PERSIST_DIR = os.getenv("PERSIST_DIR", "")
-DATA_DIR = os.path.join(PERSIST_DIR, "data")
+DATA_DIR = UPLOADS_DIR / "data"
 
 splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
@@ -19,16 +17,16 @@ splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
 
 def ingest_all_pdfs():
     """Admin: Ingest all PDFs in public folder."""
-    public_dir = os.path.join(DATA_DIR, "public")
-    if not os.path.exists(public_dir):
+    public_dir = DATA_DIR / "public"
+    if not public_dir.exists():
         print(f"No public directory: {public_dir}")
         return
-    pdfs = [f for f in os.listdir(public_dir) if f.lower().endswith('.pdf')]
+    pdfs = [f.name for f in public_dir.iterdir() if f.suffix.lower() == ".pdf"]
     if not pdfs:
         print("No public PDFs found.")
         return
     for pdf in pdfs:
-        file_path = os.path.join(public_dir, pdf)
+        file_path = public_dir / pdf
         try:
             loader = PyPDFLoader(file_path)
             docs = loader.load()
@@ -54,9 +52,9 @@ def ingest_one_pdf_admin(filename: str, user_id: str = None):
         return
     # Correct file path logic
     if pdf_info["is_public"] == 1:
-        file_path = os.path.join(DATA_DIR, "public", filename)
+        file_path = DATA_DIR / "public" / filename
     else:
-        file_path = os.path.join(DATA_DIR, pdf_info["uploaded_by"], filename)
+        file_path = DATA_DIR / pdf_info["uploaded_by"] / filename
     try:
         loader = PyPDFLoader(file_path)
         docs = loader.load()
@@ -94,7 +92,7 @@ def ingest_one_pdf_public(filename: str):
     # if pdf_info["is_public"] != 1:
     #     print(f"ERROR: Only public PDFs can be ingested as public.")
     #     return
-    file_path = os.path.join(DATA_DIR, "public", filename)
+    file_path = DATA_DIR / "public" / filename
     try:
         loader = PyPDFLoader(file_path)
         docs = loader.load()
@@ -126,9 +124,9 @@ def ingest_one_pdf_private(filename: str, user_id: str):
         return
     # Determine correct file path
     if pdf_info["is_public"] == 1:
-        file_path = os.path.join(DATA_DIR, "public", filename)
+        file_path = DATA_DIR / "public" / filename
     else:
-        file_path = os.path.join(DATA_DIR, pdf_info["uploaded_by"], filename)
+        file_path = DATA_DIR / pdf_info["uploaded_by"] / filename
     try:
         loader = PyPDFLoader(file_path)
         docs = loader.load()
@@ -164,7 +162,7 @@ def ingest_my_all_pdfs(user_id: str = None, is_public: bool = False):
     for pdf in pdfs:
         if is_public and not pdf["is_public"]:
             continue
-        file_path = os.path.join(DATA_DIR, pdf["filepath"])
+        file_path = DATA_DIR / Path(pdf["filepath"])
         try:
             loader = PyPDFLoader(file_path)
             docs = loader.load()
@@ -191,7 +189,7 @@ def ingest_one_pdf_user(filename: str, user_id: str = None):
     if not pdf_info:
         print(f"PDF '{filename}' not found or not permitted for user {user_id}.")
         return
-    file_path = os.path.join(DATA_DIR, pdf_info["filepath"])
+    file_path = DATA_DIR / Path(pdf_info["filepath"])
     try:
         loader = PyPDFLoader(file_path)
         docs = loader.load()

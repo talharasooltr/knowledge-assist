@@ -1,12 +1,12 @@
-# RAG Chatbot with User Management
+# Knowledge Assistant Backend
 
-A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, PDF management, and vector database integration using FastAPI, LangChain, and ChromaDB.
+A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, PDF management, and vector search using FastAPI, LangChain, PostgreSQL, SQLAlchemy, and pgvector.
 
 ## Features
 
 - **User Management**: Admin and regular user authentication
 - **PDF Management**: Upload, ingest, and delete PDFs per user
-- **Vector Database**: ChromaDB integration with metadata preservation
+- **Vector Search**: PostgreSQL with pgvector and metadata-based access control
 - **Chat Interface**: Interactive chat client with authentication
 
 ## Quick Start
@@ -15,8 +15,7 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
 
 - Python 3.8+
 - OpenAI API key
-- SQLite (included)
-- ChromaDB (included)
+- PostgreSQL 15+ with the `vector` extension
 
 ### Local Setup
 
@@ -28,12 +27,37 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
    python -m pip install -r backend/requirements.txt
    ```
 
+   On Windows PowerShell, activate the same root environment with:
+   ```powershell
+   .\.venv\Scripts\Activate.ps1
+   python -m pip install -r backend\requirements.txt
+   ```
+
    Do not create a separate virtual environment inside `backend/`.
 
-2. **Environment setup**
+2. **Start PostgreSQL** and create the application database with pgvector enabled.
+
+3. **Environment setup**
    ```sh
    mkdir data
    # Copy your PDF files into 'data' directory
+   ```
+
+   Replace `postgres:postgres` with the PostgreSQL username and password configured on your machine. `DATABASE_URL` must not be empty.
+
+   Create the database before running migrations if it does not exist:
+   ```sh
+   createdb -h localhost -U postgres knowledge_assistant
+   ```
+
+   Apply the PostgreSQL schema from any directory:
+   ```sh
+   alembic -c backend/alembic.ini upgrade head
+   ```
+
+   From PowerShell, use the equivalent path syntax:
+   ```powershell
+   alembic -c backend\alembic.ini upgrade head
    ```
 
 3. **Create .env file**
@@ -41,6 +65,8 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
    OPENAI_API_KEY=sk-proj-xxx
    ADMIN_USERNAME=admin
    ADMIN_PASSWORD=your_admin_password
+   DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/knowledge_assistant
+   EMBEDDING_DIMENSION=1536
    ```
 
 4. **Start the server**
@@ -58,7 +84,7 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
 ### Authentication
 
 - **Admin Users**: Authenticated using environment variables
-- **Regular Users**: Stored in SQLite database
+- **Regular Users**: Stored in PostgreSQL
 - **Session Management**: Credentials required for each operation
 
 ### User Operations
@@ -125,7 +151,6 @@ backend/
 │   ├── user_1/
 │   │   └── ... (user_1's PDFs)
 │   └── ... (other user folders)
-├── Dockerfile
 ├── main.py
 ├── README.md
 ├── requirements.txt
@@ -145,8 +170,10 @@ backend/
 └── utils/
     ├── ingest.py
     ├── llm.py
-    ├── vectordb.py
-    └── sqlitedb.py
+   ├── vectordb.py
+   ├── database.py
+   ├── database_repository.py
+   └── models.py
 ```
 
 ## Configuration
@@ -155,10 +182,12 @@ backend/
 - `OPENAI_API_KEY`: Your OpenAI API key
 - `ADMIN_USERNAME`: Admin username (default: admin)
 - `ADMIN_PASSWORD`: Admin password
+- `DATABASE_URL`: PostgreSQL connection URL
+- `EMBEDDING_DIMENSION`: Embedding vector dimension; must match the configured model
 
 ### Database
-- **SQLite**: User management and PDF metadata
-- **ChromaDB**: Vector embeddings storage
+- **PostgreSQL**: Users, PDFs, ingestion state, chat memory, and PDF chunks
+- **pgvector**: Embeddings stored in PostgreSQL `vector` columns
 
 ## Troubleshooting
 
@@ -166,15 +195,16 @@ backend/
 
 1. **Authentication Errors**
    - Verify .env file exists with correct credentials
-   - Check user exists in SQLite database
+   - Check the user exists in PostgreSQL
 
 2. **PDF Upload Issues**
    - Ensure data directory exists
    - Check file permissions
 
-3. **Vector Database Issues**
-   - Clear chroma directory if corrupted
-   - Re-ingest PDFs after clearing
+3. **Vector Search Issues**
+   - Verify PostgreSQL is running and the `vector` extension is enabled
+   - Verify `DATABASE_URL` and `EMBEDDING_DIMENSION`
+   - Re-ingest PDFs after changing the embedding model
 
 ### Useful Commands
 

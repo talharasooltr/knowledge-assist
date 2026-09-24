@@ -1,7 +1,7 @@
 import os
 from fastapi import Depends, HTTPException, status, APIRouter
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import utils.sqlitedb as db
+import utils.database_repository as db
 from utils.logger import log_event
 
 security = HTTPBasic()

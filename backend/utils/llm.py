@@ -1,9 +1,11 @@
 import os
 
-from dotenv import load_dotenv
 from langchain_openai import AzureChatOpenAI, ChatOpenAI
+from utils.config import ENV_FILE
 
-load_dotenv()
+from dotenv import load_dotenv
+
+load_dotenv(ENV_FILE)
 
 class LanguageModel:
     def __init__(
