@@ -1,12 +1,23 @@
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body, Form
+from uuid import uuid4
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
 from fastapi.security import HTTPBasicCredentials
 from typing import List
 from app.api.admin.admin_auth import verify_admin_credentials
-from app.infrastructure.db.repository import add_pdf, get_all_pdfs, delete_pdf_by_filename, get_all_ingested_pdfs, get_pdf_filepath_by_filename
+from app.api.dependencies import get_pdf_deletion_service
+from app.application.pdf_deletion import (
+    PdfDeletionPendingError,
+    PdfDeletionService,
+    PdfNotFoundError,
+)
+from app.infrastructure.db.repository import (
+    add_pdf,
+    get_all_pdfs,
+)
 from app.core.logging import log_event
 
-from app.core.config import UPLOADS_DIR
+from app.core.config import MAX_PDF_UPLOAD_BYTES, UPLOADS_DIR
+from app.core.file_uploads import InvalidPdfUploadError, UploadTooLargeError, save_pdf_stream
 
 DATA_DIR = UPLOADS_DIR / "data"
 
@@ -16,31 +27,49 @@ router = APIRouter()
 @router.post("/admin/pdf/upload")
 def upload_pdf(
     files: List[UploadFile] = File(...),
-    is_public: int = Form(0),
+    is_public: int = Form(0, ge=0, le=1),
     credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)
 ):
     uploaded = []
+    uploaded_pdfs = []
+    errors = []
     for file in files:
-        if not file.filename.lower().endswith(".pdf"):
+        filename = (file.filename or "").replace("\\", "/").rsplit("/", 1)[-1]
+        if not filename.lower().endswith(".pdf") or len(filename) > 512:
+            errors.append({"filename": filename, "error": "A valid PDF filename is required."})
             continue
         if is_public:
             save_dir = DATA_DIR / "public"
-            db_path = Path("public") / file.filename
-            uploaded_by = "admin"
+            db_path = Path("public") / f"{uuid4().hex}.pdf"
         else:
-            uploaded_by = "admin"
-            save_dir = DATA_DIR / uploaded_by
-            db_path = Path(uploaded_by) / file.filename
+            save_dir = DATA_DIR / "private"
+            db_path = Path("private") / f"{uuid4().hex}.pdf"
         save_dir.mkdir(parents=True, exist_ok=True)
-        file_path = save_dir / file.filename
-        with file_path.open("wb") as f:
-            f.write(file.file.read())
-        add_pdf(file.filename, uploaded_by, is_public, str(db_path))
-        uploaded.append(file.filename)
-        log_event(credentials.username, "admin_upload_pdf", f"filename={file.filename}, is_public={is_public}")
-    if not uploaded:
-        raise HTTPException(status_code=400, detail="No valid PDFs uploaded.")
-    return {"uploaded": uploaded}
+        file_path = UPLOADS_DIR / "data" / db_path
+        try:
+            save_pdf_stream(file.file, file_path, MAX_PDF_UPLOAD_BYTES)
+            pdf_id = add_pdf(filename, "admin", is_public, str(db_path))
+        except UploadTooLargeError as error:
+            errors.append({"filename": filename, "error": str(error)})
+            continue
+        except InvalidPdfUploadError as error:
+            errors.append({"filename": filename, "error": str(error)})
+            continue
+        except Exception:
+            file_path.unlink(missing_ok=True)
+            raise
+        uploaded.append(filename)
+        uploaded_pdfs.append({
+            "id": pdf_id,
+            "filename": filename,
+            "uploaded_by": "admin",
+            "is_public": bool(is_public),
+            "is_indexed": False,
+        })
+        log_event(credentials.username, "admin_upload_pdf", f"filename={filename}, is_public={is_public}")
+    if not uploaded and not errors:
+        raise HTTPException(status_code=400, detail="No PDFs were provided.")
+    return {"uploaded": uploaded, "uploaded_pdfs": uploaded_pdfs, "errors": errors}
 
 # get all pdfs uploaded by admin and users with some information like uploaded_by, is_public.
 @router.get("/admin/pdf")
@@ -48,71 +77,42 @@ def list_pdfs(credentials: HTTPBasicCredentials = Depends(verify_admin_credentia
     pdfs = get_all_pdfs()
     log_event(credentials.username, "admin_list_pdfs", f"count={len(pdfs)}")
     return {"pdfs": pdfs}
-
-# delete pdfs list by filename
-@router.post("/admin/pdf/delete")
-def delete_pdf(
-    data: dict = Body(...),
-    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)
+@router.delete("/admin/pdf/public")
+def delete_all_public_pdfs(
+    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
+    deletion_service: PdfDeletionService = Depends(get_pdf_deletion_service),
 ):
-    filenames = data.get("filenames")
-    if not filenames or not isinstance(filenames, list):
-        raise HTTPException(status_code=400, detail="Missing or invalid 'filenames' (must be a list).")
-    deleted = []
-    errors = []
-    for filename in filenames:
-        from app.infrastructure.db.repository import get_all_pdfs
-        pdfs = get_all_pdfs()
-        pdf_info = next((pdf for pdf in pdfs if pdf["filename"] == filename), None)
-        if not pdf_info:
-            errors.append({"filename": filename, "error": "Not found in database"})
-            continue
-        if pdf_info["is_public"] == 1:
-            abs_file_path = DATA_DIR / "public" / filename
-        else:
-            abs_file_path = DATA_DIR / pdf_info["uploaded_by"] / filename
-        if not abs_file_path.exists():
-            errors.append({"filename": filename, "error": "File not found on disk"})
-            continue
-        try:
-            abs_file_path.unlink()
-        except Exception as e:
-            errors.append({"filename": filename, "error": str(e)})
-            continue
-        from app.infrastructure.db.repository import delete_pdf_by_id
-        fileid = pdf_info["id"]
-        success = delete_pdf_by_id(fileid)
-        if not success:
-            errors.append({"filename": filename, "error": "Failed to delete from database"})
-            continue
-        deleted.append(filename)
-        log_event(credentials.username, "admin_delete_pdf", f"filename={filename}")
-    return {"deleted": deleted, "errors": errors}
-
-@router.post("/admin/pdf/delete_public")
-def delete_all_public_pdfs(credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
-    from app.infrastructure.db.repository import get_all_pdfs
     deleted = []
     errors = []
     pdfs = get_all_pdfs()
     for pdf in pdfs:
         if pdf["is_public"] != 1:
             continue
-        filename = pdf["filename"]
-        abs_file_path = DATA_DIR / "public" / filename
-        if not abs_file_path.exists():
-            errors.append({"filename": filename, "error": "File not found on disk"})
-            continue
         try:
-            abs_file_path.unlink()
-        except Exception as e:
-            errors.append({"filename": filename, "error": str(e)})
+            deletion_service.delete_pdf(pdf["id"])
+        except Exception as error:
+            errors.append({"id": pdf["id"], "filename": pdf["filename"], "error": str(error)})
             continue
-        from app.infrastructure.db.repository import delete_pdf_by_filename
-        success = delete_pdf_by_filename(filename)
-        if not success:
-            errors.append({"filename": filename, "error": "Failed to delete from database"})
-            continue
-        deleted.append(filename)
-        log_event(credentials.username, "admin_delete_public_pdf", f"filename={filename}")
+        deleted.append({"id": pdf["id"], "filename": pdf["filename"]})
+        log_event(credentials.username, "admin_delete_public_pdf", f"pdf_id={pdf['id']}")
     return {"deleted": deleted, "errors": errors}
+
+
+@router.delete("/admin/pdf/{pdf_id}")
+def delete_pdf(
+    pdf_id: int,
+    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
+    deletion_service: PdfDeletionService = Depends(get_pdf_deletion_service),
+):
+    try:
+        pdf = deletion_service.delete_pdf(pdf_id)
+    except PdfNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except PdfDeletionPendingError as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except ValueError as error:
+        raise HTTPException(status_code=500, detail="Stored PDF path is invalid.") from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    log_event(credentials.username, "admin_delete_pdf", f"pdf_id={pdf_id}")
+    return {"deleted": {"id": pdf_id, "filename": pdf["filename"]}}

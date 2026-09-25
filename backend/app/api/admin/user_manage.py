@@ -1,7 +1,7 @@
 import os
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import HTTPBasicCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import List
 from app.api.admin.admin_auth import verify_admin_credentials
 import app.infrastructure.db.repository as db
@@ -11,7 +11,7 @@ router = APIRouter()
 
 class UserCreate(BaseModel):
     username: str
-    password: str
+    password: str = Field(min_length=12, max_length=1024)
 
 class UserOut(BaseModel):
     id: int
@@ -42,7 +42,7 @@ def delete_user(username: str, credentials: HTTPBasicCredentials = Depends(verif
     return {"detail": "User deleted."}
 
 class ResetPasswordRequest(BaseModel):
-    password: str
+    password: str = Field(min_length=12, max_length=1024)
 
 @router.post("/admin/users/{username}/reset_password")
 def reset_password(username: str, req: ResetPasswordRequest, credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):

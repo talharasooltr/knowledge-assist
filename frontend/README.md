@@ -12,7 +12,7 @@ npm install
 npm run dev
 ```
 
-The frontend is available at `http://localhost:3001`.
+The frontend is available at `http://localhost:4000`.
 
 ## Routes
 

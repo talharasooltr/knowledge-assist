@@ -1,11 +1,9 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials
 from app.api.user.user_auth import verify_user_credentials
 from app.api.dependencies import get_pdf_ingestion_service
 from app.application.pdf_ingestion import PdfIngestionService
 from app.infrastructure.retrieval import chat_memory, pdf_vector_store
-from app.infrastructure.db.repository import get_ingested_pdfs_by_user, delete_ingested_pdf_by_id
 from app.core.logging import log_event
 
 router = APIRouter()
@@ -23,37 +21,26 @@ def ingest_all(
         log_event(credentials.username, "user_ingest_all_pdfs_failed", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/user/vectordb/ingest/one/{filename}")
-def ingest_by_filename(
-    filename: str,
+@router.post("/user/vectordb/ingest/pdf/{pdf_id}")
+def ingest_pdf_by_id(
+    pdf_id: int,
     credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
     ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
 ):
     try:
-        ingestion_service.ingest_user_pdf(filename, credentials.username)
-        log_event(credentials.username, "user_ingest_pdf", f"filename={filename}")
-        return {"detail": f"PDF '{filename}' ingested."}
+        ingestion_service.ingest_user_pdf_by_id(pdf_id, credentials.username)
+        log_event(credentials.username, "user_ingest_pdf_by_id", f"pdf_id={pdf_id}")
+        return {"detail": f"PDF {pdf_id} ingested."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        log_event(credentials.username, "user_ingest_pdf_failed", f"filename={filename}, error={str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete("/user/vectordb/pdf/one/{filename}")
-def remove_pdf_data(filename: str, credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
-    try:
-        pdf_vector_store.clear_pdf_by_source(filename, credentials.username)
-        log_event(credentials.username, "user_remove_pdf_data", f"filename={filename}")
-        return {"detail": f"PDF data for '{filename}' removed from vectordb."}
-    except Exception as e:
-        log_event(credentials.username, "user_remove_pdf_data_failed", f"filename={filename}, error={str(e)}")
+        log_event(credentials.username, "user_ingest_pdf_by_id_failed", f"pdf_id={pdf_id}, error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/user/vectordb/pdf/all")
 def remove_all_pdf_data(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
     try:
         pdf_vector_store.clear_pdf_by_user(credentials.username)
-        ingested = get_ingested_pdfs_by_user(credentials.username)
-        for pdf in ingested:
-            delete_ingested_pdf_by_id(pdf["id"])
         log_event(credentials.username, "user_remove_all_pdf_data", "all user PDF data removed from vectordb")
         return {"detail": "All your PDF data removed from vectordb."}
     except Exception as e:

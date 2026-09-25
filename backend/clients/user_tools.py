@@ -38,9 +38,11 @@ class UserToolsManager:
         pprint.pprint(res.json())
 
     def ingest_my_pdf(self):
-        filename = input("Enter filename to ingest: ").strip()
-        res = requests.post(f"{BASE_URL}/user/vectordb/ingest/one/{filename}", auth=self.auth)
-        log_client_event(self.username, "user_ingest_pdf", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=False)
+        listing = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth).json().get("pdfs", [])
+        pprint.pprint(listing)
+        pdf_id = int(input("PDF ID to ingest: ").strip())
+        res = requests.post(f"{BASE_URL}/user/vectordb/ingest/pdf/{pdf_id}", auth=self.auth)
+        log_client_event(self.username, "user_ingest_pdf", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def ingest_all_my_pdfs(self):
@@ -51,33 +53,33 @@ class UserToolsManager:
     def change_password(self):
         print("Not implemented. Please contact admin.")
 
-    def delete_my_pdf_from_vector_store_by_filename(self):
-        filename = input("Enter filename to remove from vectordb: ").strip()
-        res = requests.delete(f"{BASE_URL}/user/vectordb/pdf/one/{filename}", auth=self.auth)
-        log_client_event(self.username, "user_remove_pdf_vectordb", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=False)
-        pprint.pprint(res.json())
-
     def delete_all_my_pdfs_from_vector_store(self):
         res = requests.delete(f"{BASE_URL}/user/vectordb/pdf/all", auth=self.auth)
         log_client_event(self.username, "user_remove_all_pdfs_vectordb", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
-    def delete_my_pdf_from_data_by_filename(self):
-        filename = input("Enter filename to delete from storage: ").strip()
-        res = requests.post(f"{BASE_URL}/user/pdf/delete", json={"filenames": [filename]}, auth=self.auth)
-        log_client_event(self.username, "user_delete_pdf_data", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=False)
+    def delete_my_pdf_from_data_by_id(self):
+        listing = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth).json().get("pdfs", [])
+        pprint.pprint(listing)
+        pdf_id = int(input("PDF ID to delete: ").strip())
+        res = requests.delete(f"{BASE_URL}/user/pdf/{pdf_id}", auth=self.auth)
+        log_client_event(self.username, "user_delete_pdf_data", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def delete_all_my_pdfs_from_data(self):
         res = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth)
         pdfs = res.json().get("pdfs", [])
-        filenames = [pdf["filename"] for pdf in pdfs]
-        if not filenames:
+        pdf_ids = [pdf["id"] for pdf in pdfs]
+        if not pdf_ids:
             print("No PDFs to delete.")
             return
-        res = requests.post(f"{BASE_URL}/user/pdf/delete", json={"filenames": filenames}, auth=self.auth)
-        log_client_event(self.username, "user_delete_all_pdfs_data", "success" if res.status_code == 200 else "fail", f"filenames={filenames}, response={res.text}", is_admin=False)
-        pprint.pprint(res.json())
+        results = [
+            requests.delete(f"{BASE_URL}/user/pdf/{pdf_id}", auth=self.auth)
+            for pdf_id in pdf_ids
+        ]
+        success = all(response.status_code == 200 for response in results)
+        log_client_event(self.username, "user_delete_all_pdfs_data", "success" if success else "fail", f"pdf_ids={pdf_ids}", is_admin=False)
+        pprint.pprint([response.json() for response in results])
 
     def list_ingested_pdfs(self):
         res = requests.get(f"{BASE_URL}/user/ingested_pdfs", auth=self.auth)
@@ -95,8 +97,7 @@ class UserToolsManager:
             print("6. List my ingested PDFs")
             print("7. Delete a PDF from storage")
             print("8. Delete all my PDFs from storage")
-            print("9. Remove a PDF from vectordb")
-            print("10. Remove all my PDFs from vectordb")
+            print("9. Remove all my PDFs from vectordb")
             print("0. Exit")
             choice = input("Select option: ").strip()
             if choice == "1":
@@ -112,12 +113,10 @@ class UserToolsManager:
             elif choice == "6":
                 self.list_ingested_pdfs()
             elif choice == "7":
-                self.delete_my_pdf_from_data_by_filename()
+                self.delete_my_pdf_from_data_by_id()
             elif choice == "8":
                 self.delete_all_my_pdfs_from_data()
             elif choice == "9":
-                self.delete_my_pdf_from_vector_store_by_filename()
-            elif choice == "10":
                 self.delete_all_my_pdfs_from_vector_store()
             elif choice == "0":
                 log_client_event(self.username, "user_exit", "success", "user exited", is_admin=False)

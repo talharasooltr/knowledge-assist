@@ -1,8 +1,9 @@
 from typing import Optional
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, select, update
 from sqlalchemy.exc import IntegrityError
 
+from app.core.passwords import burn_password_check, hash_password, verify_password
 from app.infrastructure.db.session import get_session
 from app.infrastructure.db.models import IngestState, Pdf, User
 
@@ -14,7 +15,13 @@ def _as_flag(value: bool | int) -> int:
 def add_user(userid: str, password: str, is_admin: int = 0) -> bool:
     try:
         with get_session() as session:
-            session.add(User(userid=userid, password=password, is_admin=bool(is_admin)))
+            session.add(
+                User(
+                    userid=userid,
+                    password=hash_password(password),
+                    is_admin=bool(is_admin),
+                )
+            )
         return True
     except IntegrityError:
         return False
@@ -28,9 +35,14 @@ def delete_user(userid: str) -> bool:
 
 def authenticate_user(userid: str, password: str) -> bool:
     with get_session() as session:
-        return session.scalar(
-            select(User.id).where(User.userid == userid, User.password == password)
-        ) is not None
+        user = session.scalar(select(User).where(User.userid == userid))
+        if user is None:
+            burn_password_check(password)
+            return False
+        valid, replacement_hash = verify_password(password, user.password)
+        if valid and replacement_hash is not None:
+            user.password = replacement_hash
+        return valid
 
 
 def update_user_password(userid: str, new_password: str) -> bool:
@@ -38,7 +50,7 @@ def update_user_password(userid: str, new_password: str) -> bool:
         user = session.scalar(select(User).where(User.userid == userid))
         if user is None:
             return False
-        user.password = new_password
+        user.password = hash_password(new_password)
         return True
 
 
@@ -46,7 +58,7 @@ def get_all_users() -> list[dict]:
     with get_session() as session:
         users = session.scalars(select(User).order_by(User.id)).all()
         return [
-            {"id": user.id, "userid": user.userid, "password": user.password}
+            {"id": user.id, "userid": user.userid}
             for user in users
         ]
 
@@ -69,53 +81,74 @@ def add_pdf(
         return pdf.id
 
 
-def _pdf_dict(pdf: Pdf) -> dict:
+def _pdf_dict(pdf: Pdf, is_indexed: bool = False) -> dict:
     return {
         "id": pdf.id,
         "filename": pdf.filename,
         "filepath": pdf.filepath,
         "uploaded_by": pdf.uploaded_by,
         "is_public": _as_flag(pdf.is_public),
+        "is_indexed": is_indexed,
+        "is_deleting": pdf.deletion_requested,
         "created_at": pdf.created_at.isoformat() if pdf.created_at else None,
     }
 
 
+def _pdf_indexed_expression():
+    return exists(
+        select(IngestState.id).where(IngestState.pdf_id == Pdf.id)
+    )
+
+
 def get_pdfs_by_user(uploaded_by: str) -> list[dict]:
     with get_session() as session:
-        pdfs = session.scalars(
-            select(Pdf).where(Pdf.uploaded_by == uploaded_by).order_by(Pdf.id)
+        rows = session.execute(
+            select(Pdf, _pdf_indexed_expression()).where(
+                Pdf.uploaded_by == uploaded_by
+            ).order_by(Pdf.id)
         ).all()
-        return [_pdf_dict(pdf) for pdf in pdfs]
+        return [_pdf_dict(pdf, is_indexed) for pdf, is_indexed in rows]
 
 
 def get_all_pdfs() -> list[dict]:
     with get_session() as session:
-        return [_pdf_dict(pdf) for pdf in session.scalars(select(Pdf).order_by(Pdf.id)).all()]
+        rows = session.execute(
+            select(Pdf, _pdf_indexed_expression()).order_by(Pdf.id)
+        ).all()
+        return [_pdf_dict(pdf, is_indexed) for pdf, is_indexed in rows]
 
 
-def delete_pdf_by_filename(filename: str, uploaded_by: str | None = None) -> bool:
+def get_pdf_by_id(pdf_id: int) -> dict | None:
     with get_session() as session:
-        query = delete(Pdf).where(Pdf.filename == filename)
+        pdf = session.get(Pdf, pdf_id)
+        return _pdf_dict(pdf) if pdf is not None else None
+
+
+def request_pdf_deletion(pdf_id: int, uploaded_by: str | None = None) -> bool:
+    with get_session() as session:
+        query = update(Pdf).where(Pdf.id == pdf_id)
+        if uploaded_by is not None:
+            query = query.where(Pdf.uploaded_by == uploaded_by)
+        result = session.execute(query.values(deletion_requested=True))
+        return result.rowcount > 0
+
+
+def delete_pdf_by_id(pdf_id: int, uploaded_by: str | None = None) -> bool:
+    with get_session() as session:
+        query = delete(Pdf).where(
+            Pdf.id == pdf_id,
+            Pdf.deletion_requested.is_(True),
+        )
         if uploaded_by is not None:
             query = query.where(Pdf.uploaded_by == uploaded_by)
         result = session.execute(query)
         return result.rowcount > 0
 
 
-def delete_pdf_by_id(pdf_id: int) -> bool:
-    with get_session() as session:
-        result = session.execute(delete(Pdf).where(Pdf.id == pdf_id))
-        return result.rowcount > 0
-
-
-def get_pdf_filepath_by_filename(filename: str) -> Optional[str]:
-    with get_session() as session:
-        return session.scalar(select(Pdf.filepath).where(Pdf.filename == filename))
-
-
-def ingest(pdf_filename: str, ingested_by: str, is_public: int) -> int:
+def ingest(pdf_filename: str, ingested_by: str, is_public: int, pdf_id: int) -> int:
     with get_session() as session:
         state = IngestState(
+            pdf_id=pdf_id,
             filename=pdf_filename,
             ingested_by=ingested_by,
             is_public=bool(is_public),
@@ -135,29 +168,7 @@ def _ingest_dict(state: IngestState) -> dict:
     }
 
 
-def get_ingested_pdfs_by_user(ingested_by: str) -> list[dict]:
-    with get_session() as session:
-        states = session.scalars(
-            select(IngestState)
-            .where(IngestState.ingested_by == ingested_by)
-            .order_by(IngestState.id)
-        ).all()
-        return [_ingest_dict(state) for state in states]
-
-
 def get_all_ingested_pdfs() -> list[dict]:
     with get_session() as session:
         states = session.scalars(select(IngestState).order_by(IngestState.id)).all()
         return [_ingest_dict(state) for state in states]
-
-
-def delete_ingested_pdf_by_filename(pdf_filename: str) -> bool:
-    with get_session() as session:
-        result = session.execute(delete(IngestState).where(IngestState.filename == pdf_filename))
-        return result.rowcount > 0
-
-
-def delete_ingested_pdf_by_id(state_id: int) -> bool:
-    with get_session() as session:
-        result = session.execute(delete(IngestState).where(IngestState.id == state_id))
-        return result.rowcount > 0

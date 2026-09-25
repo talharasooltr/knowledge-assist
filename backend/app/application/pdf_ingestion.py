@@ -14,7 +14,7 @@ class PdfIngestionService:
         get_pdfs_by_user: Callable[[str], list[dict]],
         parse_pdf: Callable[[Path], list[Any]],
         save_chunks: Callable[[list[Any]], bool],
-        record_ingestion: Callable[[str, str, int], int],
+        record_ingestion: Callable[[str, str, int, int | None], int],
     ) -> None:
         self._upload_directory = upload_directory
         self._get_all_pdfs = get_all_pdfs
@@ -24,55 +24,48 @@ class PdfIngestionService:
         self._record_ingestion = record_ingestion
 
     def ingest_all_public_pdfs(self) -> None:
-        public_directory = self._upload_directory / "data" / "public"
-        if not public_directory.exists():
-            return
-        for file_path in public_directory.iterdir():
-            if file_path.suffix.lower() == ".pdf":
-                self._try_ingest(file_path, file_path.name, "public", True)
-
-    def ingest_pdf_as_admin(self, filename: str, user_id: str | None = None) -> None:
-        pdf = self._find_pdf(filename, self._get_all_pdfs())
-        if pdf is not None:
-            target_user = user_id or "public"
-            self._try_ingest(
-                self._stored_path(pdf), pdf["filename"], target_user, user_id is None
-            )
-
-    def ingest_pdf_as_public(self, filename: str) -> None:
-        pdf = self._find_pdf(filename, self._get_all_pdfs())
-        if pdf is not None:
-            path = self._upload_directory / "data" / "public" / filename
-            self._try_ingest(path, pdf["filename"], "public", True)
-
-    def ingest_pdf_for_user(self, filename: str, user_id: str) -> None:
-        pdf = self._find_pdf(filename, self._get_all_pdfs())
-        if pdf is not None:
-            self._try_ingest(self._stored_path(pdf), pdf["filename"], user_id, False)
+        for pdf in self._get_all_pdfs():
+            if pdf["is_public"] and not pdf["is_deleting"]:
+                self._ingest_record(pdf, "public", True)
 
     def ingest_user_pdfs(self, user_id: str, public_only: bool = False) -> None:
         for pdf in self._get_pdfs_by_user(user_id):
-            if public_only and not pdf["is_public"]:
+            if pdf["is_deleting"] or (public_only and not pdf["is_public"]):
                 continue
-            self._try_ingest(
-                self._stored_path(pdf),
-                pdf["filename"],
-                user_id,
-                bool(pdf["is_public"]),
-            )
+            self._ingest_record(pdf, user_id, bool(pdf["is_public"]))
 
-    def ingest_user_pdf(self, filename: str, user_id: str) -> None:
-        pdf = self._find_pdf(filename, self._get_pdfs_by_user(user_id))
-        if pdf is not None:
-            self._try_ingest(
-                self._stored_path(pdf),
-                pdf["filename"],
-                user_id,
-                bool(pdf["is_public"]),
-            )
+    def ingest_pdf_by_id(
+        self, pdf_id: int, user_id: str | None = None, is_public: bool | None = None
+    ) -> None:
+        pdf = next((item for item in self._get_all_pdfs() if item["id"] == pdf_id), None)
+        if pdf is None or pdf["is_deleting"]:
+            raise ValueError(f"PDF with id {pdf_id} was not found.")
+        target_user = user_id or ("public" if is_public else pdf["uploaded_by"])
+        target_is_public = bool(is_public) if is_public is not None else bool(pdf["is_public"])
+        self._ingest_record(pdf, target_user, target_is_public)
+
+    def ingest_user_pdf_by_id(self, pdf_id: int, user_id: str) -> None:
+        pdf = next((item for item in self._get_pdfs_by_user(user_id) if item["id"] == pdf_id), None)
+        if pdf is None or pdf["is_deleting"]:
+            raise ValueError(f"PDF with id {pdf_id} was not found for this user.")
+        self._ingest_record(pdf, user_id, bool(pdf["is_public"]))
+
+    def _ingest_record(self, pdf: dict, user_id: str, is_public: bool) -> None:
+        self._try_ingest(
+            self._stored_path(pdf),
+            pdf["filename"],
+            user_id,
+            is_public,
+            pdf["id"],
+        )
 
     def _try_ingest(
-        self, file_path: Path, filename: str, user_id: str, is_public: bool
+        self,
+        file_path: Path,
+        filename: str,
+        user_id: str,
+        is_public: bool,
+        pdf_id: int,
     ) -> None:
         try:
             chunks = self._parse_pdf(file_path)
@@ -83,16 +76,12 @@ class PdfIngestionService:
                     "source": filename,
                     "is_public": int(is_public),
                 }
+                chunk.metadata["pdf_id"] = pdf_id
             self._save_chunks(chunks)
-            self._record_ingestion(filename, user_id, int(is_public))
+            self._record_ingestion(filename, user_id, int(is_public), pdf_id)
         except Exception:
             logger.exception("Failed to ingest PDF %s", filename)
+            raise
 
     def _stored_path(self, pdf: dict) -> Path:
-        if pdf["is_public"]:
-            return self._upload_directory / "data" / "public" / pdf["filename"]
         return self._upload_directory / "data" / Path(pdf["filepath"])
-
-    @staticmethod
-    def _find_pdf(filename: str, pdfs: list[dict]) -> dict | None:
-        return next((pdf for pdf in pdfs if pdf["filename"] == filename), None)

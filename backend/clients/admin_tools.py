@@ -112,12 +112,16 @@ def data_management_menu(auth):
             print("\nPDFs:")
             pprint.pprint(res.json())
         elif choice == "4":
-            filenames = input("Enter filenames to delete (comma separated): ").split(",")
-            res = requests.post(f"{BASE_URL}/admin/pdf/delete", json={"filenames": [f.strip() for f in filenames]}, auth=auth)
-            log_client_event(auth.username, "admin_delete_pdf", "success" if res.status_code == 200 else "fail", f"filenames={filenames}, response={res.text}", is_admin=True)
-            pprint.pprint(res.json())
+            listing = requests.get(f"{BASE_URL}/admin/pdf", auth=auth).json().get("pdfs", [])
+            pprint.pprint(listing)
+            pdf_ids = input("Enter PDF IDs to delete (comma separated): ").split(",")
+            for value in pdf_ids:
+                pdf_id = int(value.strip())
+                res = requests.delete(f"{BASE_URL}/admin/pdf/{pdf_id}", auth=auth)
+                log_client_event(auth.username, "admin_delete_pdf", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=True)
+                pprint.pprint(res.json())
         elif choice == "5":
-            res = requests.post(f"{BASE_URL}/admin/pdf/delete_public", auth=auth)
+            res = requests.delete(f"{BASE_URL}/admin/pdf/public", auth=auth)
             log_client_event(auth.username, "admin_delete_all_public_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "0":
@@ -129,12 +133,11 @@ def vectordb_management_menu(auth):
     while True:
         print("\n--- VectorDB Management ---")
         print("1. Ingest all public PDFs")
-        print("2. Ingest PDF by filename (public or specific user)")
-        print("3. Remove PDF data by filename")
-        print("4. Remove PDF data by user")
-        print("5. List available PDF data")
-        print("6. Clear all users' memory")
-        print("7. Clear user memory by user ID")
+        print("2. Ingest PDF by ID (public or specific user)")
+        print("3. Remove PDF data by user")
+        print("4. List available PDF data")
+        print("5. Clear all users' memory")
+        print("6. Clear user memory by user ID")
         print("0. Back to main menu")
         choice = input("Select option: ").strip()
         if choice == "1":
@@ -142,42 +145,39 @@ def vectordb_management_menu(auth):
             log_client_event(auth.username, "admin_vectordb_ingest_all", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "2":
-            filename = input("Filename: ").strip()
+            listing = requests.get(f"{BASE_URL}/admin/pdf", auth=auth).json().get("pdfs", [])
+            pprint.pprint(listing)
+            pdf_id = int(input("PDF ID: ").strip())
             print("Ingest as:")
             print("1. Public")
             print("2. Specific user")
             ingest_choice = input("Select option: ").strip()
             if ingest_choice == "1":
-                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/public/{filename}", auth=auth)
-                log_client_event(auth.username, "admin_vectordb_ingest_public", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=True)
+                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/pdf/{pdf_id}/public", auth=auth)
+                log_client_event(auth.username, "admin_vectordb_ingest_public", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=True)
                 pprint.pprint(res.json())
             elif ingest_choice == "2":
                 user_id = input("User ID: ").strip()
-                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/private/{filename}?user_id={user_id}", auth=auth)
-                log_client_event(auth.username, "admin_vectordb_ingest_private", "success" if res.status_code == 200 else "fail", f"filename={filename}, user_id={user_id}, response={res.text}", is_admin=True)
+                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/pdf/{pdf_id}/private?user_id={user_id}", auth=auth)
+                log_client_event(auth.username, "admin_vectordb_ingest_private", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, user_id={user_id}, response={res.text}", is_admin=True)
                 pprint.pprint(res.json())
             else:
                 print("Invalid option.")
         elif choice == "3":
-            filename = input("Filename: ").strip()
-            res = requests.delete(f"{BASE_URL}/admin/vectordb/pdf/{filename}", auth=auth)
-            log_client_event(auth.username, "admin_vectordb_remove_pdf", "success" if res.status_code == 200 else "fail", f"filename={filename}, response={res.text}", is_admin=True)
-            pprint.pprint(res.json())
-        elif choice == "4":
             owner = input("User ID: ").strip()
             res = requests.delete(f"{BASE_URL}/admin/vectordb/pdf/user/{owner}", auth=auth)
             log_client_event(auth.username, "admin_vectordb_remove_by_user", "success" if res.status_code == 200 else "fail", f"owner={owner}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
-        elif choice == "5":
+        elif choice == "4":
             res = requests.get(f"{BASE_URL}/admin/vectordb/pdf", auth=auth)
             log_client_event(auth.username, "admin_vectordb_list", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             print("\nVectorDB Sources:")
             pprint.pprint(res.json())
-        elif choice == "6":
+        elif choice == "5":
             res = requests.delete(f"{BASE_URL}/admin/vectordb/memory", auth=auth)
             log_client_event(auth.username, "admin_vectordb_clear_all_memory", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
-        elif choice == "7":
+        elif choice == "6":
             user_id = input("User ID: ").strip()
             res = requests.delete(f"{BASE_URL}/admin/vectordb/memory/{user_id}", auth=auth)
             log_client_event(auth.username, "admin_vectordb_clear_user_memory", "success" if res.status_code == 200 else "fail", f"user_id={user_id}, response={res.text}", is_admin=True)

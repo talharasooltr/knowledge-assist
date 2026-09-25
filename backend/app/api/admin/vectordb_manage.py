@@ -21,57 +21,38 @@ def ingest_all(
         log_event(credentials.username, "admin_ingest_all_pdfs_failed", str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/admin/vectordb/ingest/one/{filename}")
-def ingest_by_filename(
-    filename: str,
+@router.post("/admin/vectordb/ingest/pdf/{pdf_id}/public")
+def ingest_public_pdf_by_id(
+    pdf_id: int,
     credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
     ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
 ):
     try:
-        ingestion_service.ingest_pdf_as_admin(filename)
-        log_event(credentials.username, "admin_ingest_pdf", f"filename={filename}")
-        return {"detail": f"PDF '{filename}' ingested."}
+        ingestion_service.ingest_pdf_by_id(pdf_id, is_public=True)
+        log_event(credentials.username, "admin_ingest_public_pdf_by_id", f"pdf_id={pdf_id}")
+        return {"detail": f"PDF {pdf_id} ingested as public."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        log_event(credentials.username, "admin_ingest_pdf_failed", f"filename={filename}, error={str(e)}")
+        log_event(credentials.username, "admin_ingest_public_pdf_by_id_failed", f"pdf_id={pdf_id}, error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/admin/vectordb/ingest/public/{filename}")
-def ingest_public_pdf(
-    filename: str,
-    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
-    ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
-):
-    try:
-        ingestion_service.ingest_pdf_as_public(filename)
-        log_event(credentials.username, "admin_ingest_public_pdf", f"filename={filename}")
-        return {"detail": f"PDF '{filename}' ingested as public."}
-    except Exception as e:
-        log_event(credentials.username, "admin_ingest_public_pdf_failed", f"filename={filename}, error={str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
-@router.post("/admin/vectordb/ingest/private/{filename}")
-def ingest_private_pdf(
-    filename: str,
+@router.post("/admin/vectordb/ingest/pdf/{pdf_id}/private")
+def ingest_private_pdf_by_id(
+    pdf_id: int,
     user_id: str,
     credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
     ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
 ):
     try:
-        ingestion_service.ingest_pdf_for_user(filename, user_id)
-        log_event(credentials.username, "admin_ingest_private_pdf", f"filename={filename}, user_id={user_id}")
-        return {"detail": f"PDF '{filename}' ingested for user '{user_id}'."}
+        ingestion_service.ingest_pdf_by_id(pdf_id, user_id=user_id, is_public=False)
+        log_event(credentials.username, "admin_ingest_private_pdf_by_id", f"pdf_id={pdf_id}, user_id={user_id}")
+        return {"detail": f"PDF {pdf_id} ingested for user '{user_id}'."}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        log_event(credentials.username, "admin_ingest_private_pdf_failed", f"filename={filename}, user_id={user_id}, error={str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.delete("/admin/vectordb/pdf/{filename}")
-def remove_pdf_data(filename: str, credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
-    try:
-        pdf_vector_store.clear_pdf_by_source(filename)
-        log_event(credentials.username, "admin_remove_pdf_data", f"filename={filename}")
-        return {"detail": f"PDF data for '{filename}' removed from vectordb."}
-    except Exception as e:
-        log_event(credentials.username, "admin_remove_pdf_data_failed", f"filename={filename}, error={str(e)}")
+        log_event(credentials.username, "admin_ingest_private_pdf_by_id_failed", f"pdf_id={pdf_id}, user_id={user_id}, error={str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/admin/vectordb/pdf/user/{owner}")

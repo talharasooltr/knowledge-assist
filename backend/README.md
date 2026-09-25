@@ -112,7 +112,12 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
 The interactive API reference is available at `http://localhost:8000/docs` when the server is running. Main endpoint groups are:
 
 - Authentication: `/user/auth/check`, `/user/login`, `/admin/auth/check`
-- User PDFs: `/user/pdf`, `/user/pdf/upload`, `/user/pdf/delete`
+- User PDFs: `GET /user/pdf`, `POST /user/pdf/upload`, `DELETE /user/pdf/{pdf_id}`
+- Admin PDFs: `GET /admin/pdf`, `POST /admin/pdf/upload`, `DELETE /admin/pdf/{pdf_id}`, `DELETE /admin/pdf/public`
+- PDF ingestion uses stable IDs: `/user/vectordb/ingest/pdf/{pdf_id}` and `/admin/vectordb/ingest/pdf/{pdf_id}/...`
+- Configure unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` values; startup authentication fails closed if either is missing.
+- `MAX_PDF_UPLOAD_BYTES` defaults to 20 MiB per PDF. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.
+- Set `CORS_ALLOWED_ORIGINS` to the exact frontend origins for the deployment; do not use wildcard origins with credentials.
 - User ingestion and retrieval management: `/user/vectordb/...`
 - User chat and history: `/user/chat`, `/user/chat/history`
 - Admin users, PDFs, ingestion, and chat history: `/admin/...`
