@@ -125,13 +125,16 @@ backend/
 │   ├── main.py                 # FastAPI application and router registration
 │   ├── api/
 │   │   ├── admin/              # Admin HTTP endpoints
-│   │   └── user/               # User HTTP endpoints
-│   ├── application/            # Use cases and workflows
+│   │   ├── user/               # User HTTP endpoints
+│   │   └── dependencies.py     # FastAPI dependency wiring
+│   ├── application/            # Use cases, independent of FastAPI
 │   ├── core/                   # Configuration and cross-cutting concerns
+│   ├── schemas/                # HTTP request and response models
 │   └── infrastructure/
 │       ├── db/                 # SQLAlchemy session, models, repositories
-│       ├── providers/           # LLM and external AI provider adapters
-│       └── retrieval/           # Vector search implementation
+│       ├── parsers/            # File-format parsing adapters
+│       ├── providers/          # Chat and embedding provider adapters
+│       └── retrieval/          # Chat memory and PDF vector persistence
 ├── clients/                    # CLI and API helper clients
 │   ├── admin_tools.py
 │   ├── chat_client.py
@@ -147,6 +150,15 @@ backend/
 
 Run commands from the repository root. Python imports use the `app` package;
 the API entrypoint is `app.main:app`.
+
+### Code Organization Rules
+
+- `api/` translates HTTP requests, applies authentication dependencies, and returns HTTP responses.
+- `application/` coordinates use cases and should not import FastAPI or SQLAlchemy models.
+- `infrastructure/` implements database, vector search, file parsing, and AI-provider details.
+- `schemas/` contains API input/output models shared by routes.
+- Dependencies point inward: API may call application services; application defines what it needs; infrastructure supplies concrete implementations.
+- Add tests beside the appropriate `tests/` grouping. Keep network and database dependencies mocked in unit tests.
 
 ## Configuration
 
@@ -197,5 +209,6 @@ PYTHONPATH=backend .venv/bin/python backend/tests/load_test_chat.py
 4. Update database migrations and tests when schemas or behavior change.
 
 ### Testing
-- Test user isolation and permissions
-- Verify PDF operations work correctly
+- Run unit tests with `.venv/bin/python -m unittest discover -s backend/tests -v`.
+- Test user isolation and permissions.
+- Verify PDF upload, ingestion, and retrieval behavior against PostgreSQL in integration tests.

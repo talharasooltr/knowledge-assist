@@ -1,5 +1,5 @@
 from pathlib import Path
-from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Query, Body, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Body, Form
 from fastapi.security import HTTPBasicCredentials
 from typing import List
 from app.api.user.user_auth import verify_user_credentials

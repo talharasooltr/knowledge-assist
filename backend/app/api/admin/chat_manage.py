@@ -1,8 +1,7 @@
-import os
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPBasicCredentials
 from app.api.admin.admin_auth import verify_admin_credentials
-import app.infrastructure.retrieval.vector_store as vectordb
+from app.infrastructure.retrieval.chat_memory import get_all_history
 from app.core.logging import log_event
 
 router = APIRouter()
@@ -10,7 +9,7 @@ router = APIRouter()
 @router.get("/admin/chat/history/{user_id}")
 def get_chat_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
     try:
-        history = vectordb.get_all_history(user_id)
+        history = get_all_history(user_id)
         log_event(credentials.username, "admin_get_chat_history", f"user_id={user_id}, count={len(history)}")
         return {"user_id": user_id, "history": history}
     except Exception as e:

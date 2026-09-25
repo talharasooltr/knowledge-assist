@@ -1,5 +1,6 @@
 from app.infrastructure.db import repository as database_repository
-from app.infrastructure.retrieval.vector_store import get_available_user_ids, get_pdf_sources
+from app.infrastructure.retrieval.chat_memory import get_available_user_ids
+from app.infrastructure.retrieval.pdf_vector_store import get_pdf_sources
 
 
 if __name__ == "__main__":
