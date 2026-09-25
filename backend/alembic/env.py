@@ -3,8 +3,8 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-from utils.config import DATABASE_URL
-from utils.models import Base
+from app.core.config import DATABASE_URL
+from app.infrastructure.db.models import Base
 
 config = context.config
 if not DATABASE_URL:

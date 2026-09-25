@@ -1,25 +1,25 @@
 # Knowledge Assistant Backend
 
-A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, PDF management, and vector search using FastAPI, LangChain, PostgreSQL, SQLAlchemy, and pgvector.
+A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, PostgreSQL, SQLAlchemy, and pgvector. PDF is the currently implemented ingestion source; other media sources are not implemented yet.
 
 ## Features
 
 - **User Management**: Admin and regular user authentication
-- **PDF Management**: Upload, ingest, and delete PDFs per user
+- **PDF Management**: Upload, ingest, list, and delete PDFs
 - **Vector Search**: PostgreSQL with pgvector and metadata-based access control
-- **Chat Interface**: Interactive chat client with authentication
+- **Chat API**: Authenticated chat endpoints used by the Next.js frontend
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.8+
-- OpenAI API key
+- Python 3.10+
+- OpenAI or Azure OpenAI credentials
 - PostgreSQL 15+ with the `vector` extension
 
 ### Local Setup
 
-1. **From the repository root, create the shared virtual environment and install dependencies.** The `.venv` directory must remain at the repository root so it can be shared with the frontend.
+1. **From the repository root, create the shared virtual environment and install dependencies.** The `.venv` directory should remain at the repository root so the backend and frontend tools share one environment location.
    ```sh
    python3 -m venv .venv
    source .venv/bin/activate
@@ -35,15 +35,15 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
 
    Do not create a separate virtual environment inside `backend/`.
 
-2. **Start PostgreSQL** and create the application database with pgvector enabled.
+2. **Configure the backend environment.** Copy `backend/.env.example` to `backend/.env` and set the required values. The configuration loader reads this file directly.
 
-3. **Environment setup**
    ```sh
-   mkdir data
-   # Copy your PDF files into 'data' directory
+   cp backend/.env.example backend/.env
    ```
 
-   Replace `postgres:postgres` with the PostgreSQL username and password configured on your machine. `DATABASE_URL` must not be empty.
+3. **Start PostgreSQL** and create the application database. The migration enables the `vector` extension, so the database role must have permission to create it (or the extension must already be installed).
+
+   Set `DATABASE_URL` to the connection URL for your database. `UPLOADS_DIR` defaults to the repository root, where uploads are stored under `data/`.
 
    Create the database before running migrations if it does not exist:
    ```sh
@@ -52,31 +52,22 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
 
    Apply the PostgreSQL schema from any directory:
    ```sh
-   alembic -c backend/alembic.ini upgrade head
+   .venv/bin/alembic -c backend/alembic.ini upgrade head
    ```
 
    From PowerShell, use the equivalent path syntax:
    ```powershell
-   alembic -c backend\alembic.ini upgrade head
-   ```
-
-3. **Create .env file**
-   ```
-   OPENAI_API_KEY=sk-proj-xxx
-   ADMIN_USERNAME=admin
-   ADMIN_PASSWORD=your_admin_password
-   DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/knowledge_assistant
-   EMBEDDING_DIMENSION=1536
+   .venv\Scripts\alembic.exe -c backend\alembic.ini upgrade head
    ```
 
 4. **Start the server**
    ```sh
-   uvicorn main:app --host 0.0.0.0 --port 8000
+   .venv/bin/uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
    ```
 
 5. **Use the chat client**
    ```sh
-   python Client/chat_client.py
+   .venv/bin/python backend/clients/chat_client.py
    ```
 
 ## User Management
@@ -118,63 +109,44 @@ A Retrieval-Augmented Generation (RAG) chatbot system with user authentication, 
 
 ## API Endpoints
 
-### Authentication
-- `POST /login` - User authentication
-- `POST /admin/login` - Admin authentication
+The interactive API reference is available at `http://localhost:8000/docs` when the server is running. Main endpoint groups are:
 
-### User Management
-- `GET /users` - List all users (admin only)
-- `POST /users` - Create new user
-- `PUT /users/{user_id}/password` - Reset user password (admin only)
-
-### PDF Management
-- `POST /upload/{user_id}` - Upload PDF for user
-- `POST /ingest/{user_id}` - Ingest PDFs for user
-- `DELETE /pdfs/{user_id}` - Delete all PDFs for user
-- `DELETE /pdfs/{user_id}/{filename}` - Delete specific PDF
-
-### Chat
-- `POST /chat` - Chat with RAG system
+- Authentication: `/user/auth/check`, `/user/login`, `/admin/auth/check`
+- User PDFs: `/user/pdf`, `/user/pdf/upload`, `/user/pdf/delete`
+- User ingestion and retrieval management: `/user/vectordb/...`
+- User chat and history: `/user/chat`, `/user/chat/history`
+- Admin users, PDFs, ingestion, and chat history: `/admin/...`
 
 ## Project Structure
 
 ```
 backend/
-├── Client/
+├── app/
+│   ├── main.py                 # FastAPI application and router registration
+│   ├── api/
+│   │   ├── admin/              # Admin HTTP endpoints
+│   │   └── user/               # User HTTP endpoints
+│   ├── application/            # Use cases and workflows
+│   ├── core/                   # Configuration and cross-cutting concerns
+│   └── infrastructure/
+│       ├── db/                 # SQLAlchemy session, models, repositories
+│       ├── providers/           # LLM and external AI provider adapters
+│       └── retrieval/           # Vector search implementation
+├── clients/                    # CLI and API helper clients
 │   ├── admin_tools.py
 │   ├── chat_client.py
-│   ├── test_multi_chat.py
 │   ├── user_tools.py
-├── data/
-│   ├── public/
-│   │   └── ... (public PDFs)
-│   ├── user_1/
-│   │   └── ... (user_1's PDFs)
-│   └── ... (other user folders)
-├── main.py
-├── README.md
+├── scripts/                    # Operational and maintenance scripts
+├── tests/                      # Integration and load tests
+│   └── load_test_chat.py
+├── alembic/                    # Database migrations
+├── alembic.ini
 ├── requirements.txt
-├── routes/
-│   ├── admin/
-│   │   ├── admin_auth.py
-│   │   ├── chat_manage.py
-│   │   ├── data_manage.py
-│   │   ├── user_manage.py
-│   │   └── vectordb_manage.py
-│   └── user/
-│       ├── chat_manage.py
-│       ├── data_manage.py
-│       ├── user_auth.py
-│       ├── user_manage.py
-│       └── vectordb_manage.py
-└── utils/
-    ├── ingest.py
-    ├── llm.py
-   ├── vectordb.py
-   ├── database.py
-   ├── database_repository.py
-   └── models.py
+└── README.md
 ```
+
+Run commands from the repository root. Python imports use the `app` package;
+the API entrypoint is `app.main:app`.
 
 ## Configuration
 
@@ -209,29 +181,20 @@ backend/
 ### Useful Commands
 
 ```sh
-# Clear vector database
-python Client/memory_management.py --clear-vectors
+# Run the database summary script
+PYTHONPATH=backend .venv/bin/python backend/scripts/database_summary.py
 
-# List all users
-python Client/user_management.py --list-users
-
-# Delete user PDFs
-python Client/data_management.py --delete-user-pdfs USER_ID
-
-# Admin operations
-python Client/admin_tools.py --reset-password USER_ID
-
-# User operations
-python Client/user_tools.py --create-user USERNAME PASSWORD
+# Run the chat load test against a running API
+PYTHONPATH=backend .venv/bin/python backend/tests/load_test_chat.py
 ```
 
 ## Development
 
 ### Adding New Features
-1. Update API endpoints in `main.py`
-2. Add corresponding client functions
-3. Update database schema if needed
-4. Test with multiple users
+1. Add or update a router under `app/api/` and register it in `app/main.py`.
+2. Put reusable workflows in `app/application/` rather than implementing them in route handlers.
+3. Put persistence and external integrations under `app/infrastructure/`.
+4. Update database migrations and tests when schemas or behavior change.
 
 ### Testing
 - Test user isolation and permissions

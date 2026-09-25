@@ -14,5 +14,7 @@ pgvector
 alembic
 python-multipart
 pydantic
+requests
+httpx
 # pytest
 # pytest-asyncio
