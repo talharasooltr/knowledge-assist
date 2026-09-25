@@ -4,11 +4,10 @@ This directory contains the Next.js web application for the Knowledge Assistant.
 
 ## Local Development
 
-From the repository root, install the frontend dependencies and start the development server:
+If `frontend/node_modules` already has the dependencies, skip installation and start the server directly. `npm ci` downloads any uncached packages and replaces the contents of `node_modules`, so use it only for a fresh clone or disposable environment when network access is available.
 
 ```bash
 cd frontend
-npm install
 npm run dev
 ```
 
@@ -23,13 +22,15 @@ The frontend is available at `http://localhost:4000`.
 
 Workspace routes share an authenticated layout, while each workflow has a dedicated page and URL. The root route redirects to `/chat`.
 
-On Windows PowerShell, use the same commands:
+For a fresh clone, install exactly from the lockfile first:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
+
+`package-lock.json` pins the frontend dependency tree. Avoid `npm install` or `npm ci` when you want to preserve an existing `node_modules` directory or conserve bandwidth; routine local commands such as lint, type-check, build, and dev use the installed dependencies without installing packages.
 
 ## Backend Connection
 

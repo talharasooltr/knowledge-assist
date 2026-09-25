@@ -19,21 +19,23 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
 
 ### Local Setup
 
-1. **From the repository root, create the shared virtual environment and install dependencies.** The `.venv` directory should remain at the repository root so the backend and frontend tools share one environment location.
+1. **From the repository root, use the shared virtual environment.** Reuse an existing `.venv`. If it already has the backend dependencies, skip installation entirely; installing missing dependencies downloads packages. Create the environment only for a fresh clone where it does not exist. The backend lockfile targets Python 3.12 on the platform where it was generated.
    ```sh
-   python3 -m venv .venv
+   test -x .venv/bin/python || python3 -m venv .venv
    source .venv/bin/activate
-   python -m pip install --upgrade pip
-   python -m pip install -r backend/requirements.txt
+   # Run only for a fresh/incomplete environment with network access.
+   python -m pip install -r backend/pylock.toml
    ```
 
    On Windows PowerShell, activate the same root environment with:
    ```powershell
+   if (-not (Test-Path .venv\Scripts\python.exe)) { python -m venv .venv }
    .\.venv\Scripts\Activate.ps1
-   python -m pip install -r backend\requirements.txt
+   # Run only for a fresh/incomplete environment with network access.
+   python -m pip install -r backend\pylock.toml
    ```
 
-   Do not create a separate virtual environment inside `backend/`.
+   Do not run `pip install --upgrade pip` automatically; that also downloads packages. `pylock.toml` uses pip's PEP 751 lock support and is generated from the pinned direct dependencies in `backend/requirements.txt`. If pip on a fresh clone does not support this lock format, use a compatible pip version when network access is available. If targeting a different Python/platform, generate and validate a lock for that target rather than assuming this lock is cross-platform. Do not create a separate virtual environment inside `backend/`.
 
 2. **Configure the backend environment.** Copy `backend/.env.example` to `backend/.env` and set the required values. The configuration loader reads this file directly.
 
@@ -43,7 +45,7 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
 
 3. **Start PostgreSQL** and create the application database. The migration enables the `vector` extension, so the database role must have permission to create it (or the extension must already be installed).
 
-   Set `DATABASE_URL` to the connection URL for your database. `UPLOADS_DIR` defaults to the repository root, where uploads are stored under `data/`.
+   Set `DATABASE_URL` to the connection URL for your database. The backend fails immediately with a configuration error if it is missing; it does not fall back to default credentials. `UPLOADS_DIR` defaults to the repository root, where uploads are stored under `data/`.
 
    Create the database before running migrations if it does not exist:
    ```sh

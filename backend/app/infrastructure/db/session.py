@@ -8,7 +8,9 @@ from app.infrastructure.db.models import Base
 from app.core.config import DATABASE_URL
 
 if not DATABASE_URL:
-    DATABASE_URL = "postgresql+psycopg://postgres:postgres@localhost:5432/knowledge_assistant"
+    raise RuntimeError(
+        "DATABASE_URL is required. Configure it in backend/.env or the process environment."
+    )
 
 engine = create_engine(
     DATABASE_URL,
