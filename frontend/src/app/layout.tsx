@@ -1,15 +1,16 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "@/features/auth/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
   title: "Knowledge Assistant",
-  description: "A multi-source AI knowledge workspace.",
+  description: "A document-grounded knowledge assistant.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body><AuthProvider>{children}</AuthProvider></body>
     </html>
   );
 }

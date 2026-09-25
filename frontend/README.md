@@ -14,6 +14,15 @@ npm run dev
 
 The frontend is available at `http://localhost:3001`.
 
+## Routes
+
+- `/login` signs in members and administrators.
+- `/chat` is the document-grounded chat workspace.
+- `/documents` manages uploaded PDF files.
+- `/admin/users` is available to administrators for user management.
+
+Workspace routes share an authenticated layout, while each workflow has a dedicated page and URL. The root route redirects to `/chat`.
+
 On Windows PowerShell, use the same commands:
 
 ```powershell
