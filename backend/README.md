@@ -164,6 +164,10 @@ the API entrypoint is `app.main:app`.
 
 ### Environment Variables
 - `OPENAI_API_KEY`: Your OpenAI API key
+- `LLM_PROVIDER`: `openai` or `azure-openai`
+- `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_KEY`, and `AZURE_OPENAI_API_VERSION`: Azure OpenAI resource configuration
+- `AZURE_OPENAI_CHAT_DEPLOYMENT`: Exact Azure chat deployment name; required when `LLM_PROVIDER=azure-openai`
+- `AZURE_OPENAI_EMBEDDING_DEPLOYMENT`: Exact Azure embedding deployment name; required when `LLM_PROVIDER=azure-openai`
 - `ADMIN_USERNAME`: Admin username (default: admin)
 - `ADMIN_PASSWORD`: Admin password
 - `DATABASE_URL`: PostgreSQL connection URL

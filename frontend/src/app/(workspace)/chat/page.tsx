@@ -7,7 +7,7 @@ import { useAuth } from "@/features/auth/auth-context";
 type Message = { role: "user" | "assistant"; content: string };
 
 export default function ChatPage() {
-  const { auth, username } = useAuth();
+  const { auth, role, username } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState("");
@@ -23,7 +23,7 @@ export default function ChatPage() {
     setMessages((current) => [...current, { role: "user", content: message }]);
     setBusy(true);
     try {
-      const result = await apiRequest<{ response: string }>("/user/chat", auth, {
+      const result = await apiRequest<{ response: string }>(`/${role}/chat`, auth, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: username, message }),

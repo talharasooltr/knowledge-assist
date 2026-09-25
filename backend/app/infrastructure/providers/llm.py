@@ -10,7 +10,7 @@ load_dotenv(ENV_FILE)
 class LanguageModel:
     def __init__(
         self,
-        model_name: str = "gpt-4o",
+        model_name: str = "gpt-4o-mini",
         temperature: float = 0,
         fake_model: bool = False,
         provider: str | None = None,
@@ -39,7 +39,14 @@ class LanguageModel:
             )
 
         elif self.provider == "azure-openai":
+            deployment = os.getenv("AZURE_OPENAI_CHAT_DEPLOYMENT", "").strip()
+            if not deployment:
+                raise ValueError(
+                    "AZURE_OPENAI_CHAT_DEPLOYMENT must be set for Azure OpenAI."
+                )
             self.llm = AzureChatOpenAI(
+                model=model_name,
+                azure_deployment=deployment,
                 api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
                 azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
                 api_key=os.getenv("AZURE_OPENAI_API_KEY"),
