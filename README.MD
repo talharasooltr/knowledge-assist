@@ -6,6 +6,34 @@ Users can upload PDF documents and ask natural-language questions to retrieve re
 
 The platform provides separate experiences for regular users and administrators. Users can add and explore knowledge, while administrators can manage users, shared content, access, and system activity.
 
+## Screenshots
+
+The screenshots below show the PDF workflow using the fictional Maple Court Resident Guide demo document.
+
+### Indexed Documents
+
+PDFs are listed with their indexing status after upload.
+
+![Documents page showing indexed PDFs](docs/screenshots/01-indexed-pdf.png)
+
+### Cited Answer
+
+An after-hours leak question answered from the guide, with the source filename and page citation visible.
+
+![Chat answer with PDF citation](docs/screenshots/02-cited-answer.png)
+
+### Citation Verification
+
+The cited answer is shown alongside the matching source page for manual verification.
+
+![Answer beside the cited source page](docs/screenshots/03-source-page.png)
+
+### Missing Information
+
+When asked about a pet policy that is not covered in the guide, the assistant says it cannot confirm the answer from the available documents.
+
+![Assistant response when the PDF does not contain the answer](docs/screenshots/04-not-in-document.png)
+
 ## What It Does
 
 - **Manage PDF knowledge**: Upload, ingest, list, and remove PDFs.
