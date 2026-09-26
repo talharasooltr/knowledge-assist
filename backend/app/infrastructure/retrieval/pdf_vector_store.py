@@ -4,13 +4,17 @@ from collections.abc import Iterable
 from langchain_core.documents import Document
 from sqlalchemy import delete, distinct, or_, select
 
+from app.core.json_types import JSONValue, normalize_json_value
 from app.infrastructure.db.models import IngestState, Pdf, PdfChunk
 from app.infrastructure.db.session import get_session
 from app.infrastructure.providers.embeddings import get_embedding
 
 
-def _chunk_metadata(chunk: Document) -> dict:
-    metadata = dict(chunk.metadata or {})
+def _chunk_metadata(chunk: Document) -> dict[str, JSONValue]:
+    metadata = {
+        key: normalize_json_value(value)
+        for key, value in (chunk.metadata or {}).items()
+    }
     metadata.setdefault("source", metadata.get("filename"))
     metadata.setdefault("filename", metadata.get("source"))
     metadata.setdefault("user_id", "public")

@@ -1,6 +1,8 @@
 import logging
 from pathlib import Path
-from typing import Any, Callable
+from collections.abc import Callable
+
+from langchain_core.documents import Document
 
 
 logger = logging.getLogger(__name__)
@@ -12,8 +14,8 @@ class PdfIngestionService:
         upload_directory: Path,
         get_all_pdfs: Callable[[], list[dict]],
         get_pdfs_by_user: Callable[[str], list[dict]],
-        parse_pdf: Callable[[Path], list[Any]],
-        save_chunks: Callable[[list[Any]], bool],
+        parse_pdf: Callable[[Path], list[Document]],
+        save_chunks: Callable[[list[Document]], bool],
         record_ingestion: Callable[[str, str, int, int | None], int],
     ) -> None:
         self._upload_directory = upload_directory
@@ -71,6 +73,7 @@ class PdfIngestionService:
             chunks = self._parse_pdf(file_path)
             for chunk in chunks:
                 chunk.metadata = {
+                    **(chunk.metadata or {}),
                     "user_id": user_id,
                     "filename": filename,
                     "source": filename,

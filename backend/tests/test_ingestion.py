@@ -1,14 +1,15 @@
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock
+
+from langchain_core.documents import Document
 
 from app.application.pdf_ingestion import PdfIngestionService
 
 
 class PdfIngestionTests(unittest.TestCase):
     def test_process_pdf_assigns_access_metadata_and_persists_chunks(self):
-        document = SimpleNamespace(page_content="PDF text", metadata={})
+        document = Document(page_content="PDF text", metadata={})
         insert_chunks = Mock()
         record_ingestion = Mock()
         service = PdfIngestionService(
@@ -49,7 +50,7 @@ class PdfIngestionTests(unittest.TestCase):
             service._try_ingest(Path("report.pdf"), "report.pdf", "casey", False, 42)
 
     def test_ingest_by_pdf_id_preserves_identity_for_duplicate_filenames(self):
-        document = SimpleNamespace(page_content="PDF text", metadata={})
+        document = Document(page_content="PDF text", metadata={})
         pdf = {
             "id": 42,
             "filename": "report.pdf",

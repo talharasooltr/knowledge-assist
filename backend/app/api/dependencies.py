@@ -15,7 +15,7 @@ from app.infrastructure.parsers.pdf import parse_pdf
 from app.infrastructure.retrieval.chat_memory import (
     get_all_history,
     retrieve_user_memory,
-    save_user_message,
+    save_chat_message,
 )
 from app.infrastructure.retrieval.pdf_vector_store import insert_new_chunks, retrieve_pdf_for_user
 
@@ -24,7 +24,7 @@ def get_chat_service() -> ChatService:
     return ChatService(
         retrieve_memory=retrieve_user_memory,
         retrieve_documents=retrieve_pdf_for_user,
-        save_message=save_user_message,
+        save_message=save_chat_message,
         get_history=get_all_history,
         generate_response=LLM.predict,
     )

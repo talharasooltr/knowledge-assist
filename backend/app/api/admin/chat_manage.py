@@ -7,7 +7,7 @@ from app.api.dependencies import get_chat_service
 from app.application.chat_service import ChatService
 from app.infrastructure.retrieval.chat_memory import get_all_history
 from app.core.logging import log_event
-from app.schemas.chat import ChatRequest, ChatResponse
+from app.schemas.chat import ChatHistoryResponse, ChatRequest, ChatResponse
 
 router = APIRouter()
 
@@ -19,10 +19,10 @@ async def admin_chat(
 ):
     result = await asyncio.to_thread(service.answer, credentials.username, req.message)
     log_event(credentials.username, "admin_chat", f"message={req.message}")
-    return ChatResponse(response=result.response, prompt=result.prompt)
+    return ChatResponse(response=result.response, prompt=result.prompt, citations=result.citations)
 
 
-@router.get("/admin/chat/history/{user_id}")
+@router.get("/admin/chat/history/{user_id}", response_model=ChatHistoryResponse)
 def get_chat_history(user_id: str, credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
     try:
         history = get_all_history(user_id)
