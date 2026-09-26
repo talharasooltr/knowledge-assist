@@ -19,28 +19,30 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
 
 ### Local Setup
 
-1. **From the repository root, use the shared virtual environment.** Reuse an existing `.venv`. If it already has the backend dependencies, skip installation entirely; installing missing dependencies downloads packages. Create the environment only for a fresh clone where it does not exist. `requirements.txt` pins direct dependencies and supports Python 3.10+.
+Run the backend commands below from the `backend/` directory.
+
+1. **Use the backend-local virtual environment at `.venv`.** Reuse it if it already has the backend dependencies; installing missing dependencies downloads packages. Create it only for a fresh clone where it does not exist. `requirements.txt` pins direct dependencies and supports Python 3.10+.
    ```sh
    test -x .venv/bin/python || python3 -m venv .venv
    source .venv/bin/activate
    # Portable install; run only for a fresh/incomplete environment with network access.
-   python -m pip install -r backend/requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
-   On Windows PowerShell, activate the same root environment with:
+   On Windows PowerShell, create and activate `.venv` with:
    ```powershell
    if (-not (Test-Path .venv\Scripts\python.exe)) { python -m venv .venv }
    .\.venv\Scripts\Activate.ps1
    # Portable install; run only for a fresh/incomplete environment with network access.
-   python -m pip install -r backend\requirements.txt
+   python -m pip install -r requirements.txt
    ```
 
-   Do not run `pip install --upgrade pip` automatically; that also downloads packages. `pylock.toml` is a platform-specific PEP 751 lockfile, not a requirements file accepted by pip's `-r` option. Use `backend/requirements.txt` for installation. Do not create a separate virtual environment inside `backend/`.
+   Do not run `pip install --upgrade pip` automatically; that also downloads packages. `pylock.toml` is a platform-specific PEP 751 lockfile, not a requirements file accepted by pip's `-r` option. Use `requirements.txt` for installation.
 
-2. **Configure the backend environment.** Copy `backend/.env.example` to `backend/.env` and set the required values. The configuration loader reads this file directly.
+2. **Configure the backend environment.** Copy `.env.example` to `.env` and set the required values. The configuration loader reads this file directly.
 
    ```sh
-   cp backend/.env.example backend/.env
+   cp .env.example .env
    ```
 
 3. **Start PostgreSQL** and create the application database. The migration enables the `vector` extension, so the database role must have permission to create it (or the extension must already be installed).
@@ -52,24 +54,24 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
    createdb -h localhost -U postgres knowledge_assistant
    ```
 
-   Apply the PostgreSQL schema from any directory:
+   From the `backend/` directory, apply the PostgreSQL schema:
    ```sh
-   .venv/bin/alembic -c backend/alembic.ini upgrade head
+   .venv/bin/alembic -c alembic.ini upgrade head
    ```
 
    From PowerShell, use the equivalent path syntax:
    ```powershell
-   .venv\Scripts\alembic.exe -c backend\alembic.ini upgrade head
+   .venv\Scripts\alembic.exe -c alembic.ini upgrade head
    ```
 
 4. **Start the server**
    ```sh
-   .venv/bin/uvicorn app.main:app --app-dir backend --host 0.0.0.0 --port 8000
+   .venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
    ```
 
 5. **Use the chat client**
    ```sh
-   .venv/bin/python backend/clients/chat_client.py
+   .venv/bin/python clients/chat_client.py
    ```
 
 ## User Management
@@ -155,8 +157,8 @@ backend/
 └── README.md
 ```
 
-Run commands from the repository root. Python imports use the `app` package;
-the API entrypoint is `app.main:app`.
+Run backend commands from the `backend/` directory. Python imports use the `app`
+package; the API entrypoint is `app.main:app`.
 
 ### Code Organization Rules
 
@@ -205,10 +207,10 @@ the API entrypoint is `app.main:app`.
 
 ```sh
 # Run the database summary script
-PYTHONPATH=backend .venv/bin/python backend/scripts/database_summary.py
+PYTHONPATH=. .venv/bin/python scripts/database_summary.py
 
 # Run the chat load test against a running API
-PYTHONPATH=backend .venv/bin/python backend/tests/load_test_chat.py
+PYTHONPATH=. .venv/bin/python tests/load_test_chat.py
 ```
 
 ## Development
@@ -220,6 +222,6 @@ PYTHONPATH=backend .venv/bin/python backend/tests/load_test_chat.py
 4. Update database migrations and tests when schemas or behavior change.
 
 ### Testing
-- Run unit tests with `.venv/bin/python -m unittest discover -s backend/tests -v`.
+- Run unit tests with `PYTHONPATH=. .venv/bin/python -m unittest discover -s tests -v`.
 - Test user isolation and permissions.
 - Verify PDF upload, ingestion, and retrieval behavior against PostgreSQL in integration tests.
