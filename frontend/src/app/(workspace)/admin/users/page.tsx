@@ -56,14 +56,14 @@ export default function AdminUsersPage() {
       <header className="topline"><div><div className="eyebrow">Administration</div><h1>People and access</h1><div className="subtle">Manage the people who can use this workspace.</div></div></header>
       {error && <div className="error" role="alert">{error}</div>}
       {status && <div className="status" role="status">{status}</div>}
-      <section className="grid">
-        <form className="panel card" onSubmit={createUser}>
+      <section className="grid people-grid">
+        <form className="panel card people-card" onSubmit={createUser}>
           <h3>Create a user</h3><p>Add a member who can sign in to this workspace.</p>
           <div className="field"><label htmlFor="new-username">Username</label><input id="new-username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" required /></div>
           <div className="field"><label htmlFor="new-user-password">Temporary password</label><input id="new-user-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required /></div>
           <button className="primary full" disabled={busy}>{busy ? "Creating..." : "Create user"}</button>
         </form>
-        <section className="panel card"><h3>Workspace members</h3><div className="list">{users.map((user) => <div className="list-row" key={user.id}><div><strong>{user.username}</strong><br /><small>Member</small></div><button className="mini-button" onClick={() => void deleteUser(user)} disabled={busy}>Delete</button></div>)}</div></section>
+        <section className="panel card people-card"><h3>Workspace members</h3><div className="list people-list">{users.map((user) => <div className="list-row" key={user.id}><div><strong>{user.username}</strong><br /><small>Member</small></div><button className="mini-button" onClick={() => void deleteUser(user)} disabled={busy}>Delete</button></div>)}</div></section>
       </section>
     </>
   );

@@ -100,14 +100,14 @@ export default function DocumentsPage() {
       <header className="topline"><div><div className="eyebrow">Knowledge workspace</div><h1>Your documents</h1><div className="subtle">Upload and manage the sources behind your answers.</div></div></header>
       {error && <div className="error" role="alert">{error}</div>}
       {status && <div className="status" role="status">{status}</div>}
-      <section className="grid">
-        <div className="panel card">
+      <section className="grid documents-grid">
+        <div className="panel card document-card">
           <h3>Add a source</h3><p>Upload PDF documents to make them available to the assistant.</p>
           <div className="upload"><strong>Choose documents</strong><br /><small className="subtle">PDF files are processed into searchable knowledge.</small><input type="file" accept="application/pdf,.pdf" multiple onChange={uploadFiles} disabled={busy} /></div>
         </div>
-        <section className="panel card">
+        <section className="panel card document-card">
           <h3>Stored documents</h3><p>Sources currently connected to this workspace.</p>
-          <div className="list">{files.length ? files.map((file) => {
+          <div className="list document-list">{files.length ? files.map((file) => {
             return <div className="list-row" key={`${file.id}-${file.filename}`}><div><strong>{file.filename}</strong><br /><small>{file.is_public ? "Shared" : "Private"}</small></div><div>{file.is_indexed ? <span className="subtle" aria-label="Document indexed">Indexed</span> : <button className="mini-button" onClick={() => void indexFile(file)} disabled={busy}>Index</button>} <button className="mini-button" onClick={() => void deleteFile(file)} disabled={busy}>Remove</button></div></div>;
           }) : <div className="subtle">No documents yet.</div>}</div>
         </section>

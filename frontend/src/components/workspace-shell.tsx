@@ -15,7 +15,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   const { role, username, signOut } = useAuth();
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${pathname === "/chat" ? "app-shell-chat" : ""}`}>
       <aside className="sidebar">
         <Link className="brand" href="/chat"><span className="brand-mark">◈</span> Knowledge Assistant</Link>
         <div className="sidebar-user"><strong>{username}</strong><br />{role === "admin" ? "Administrator" : "Member"}</div>
@@ -25,7 +25,7 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
         </nav>
         <button className="signout" onClick={signOut} type="button">Sign out</button>
       </aside>
-      <main className="main">{children}</main>
+      <main className={`main ${pathname === "/chat" ? "main-chat" : ""} ${pathname === "/documents" ? "main-documents" : ""} ${pathname.startsWith("/admin/users") ? "main-people" : ""}`}>{children}</main>
     </div>
   );
 }
