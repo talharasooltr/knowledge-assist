@@ -115,17 +115,19 @@ Run the backend commands below from the `backend/` directory.
 
 The interactive API reference is available at `http://localhost:8000/docs` when the server is running. Main endpoint groups are:
 
-- Authentication: `POST /user/auth/login`, `POST /admin/auth/login`, `GET /auth/session`, `POST /auth/logout`
-- User PDFs: `GET /user/pdf`, `POST /user/pdf/upload`, `DELETE /user/pdf/{pdf_id}`
-- Admin PDFs: `GET /admin/pdf`, `POST /admin/pdf/upload`, `DELETE /admin/pdf/{pdf_id}`, `DELETE /admin/pdf/public`
-- PDF ingestion uses stable IDs: `/user/vectordb/ingest/pdf/{pdf_id}` and `/admin/vectordb/ingest/pdf/{pdf_id}/...`
+- Authentication: `POST /auth/login`, `GET /auth/session`, `POST /auth/logout`
+- The login endpoint resolves admin or member identity on the server; clients do not submit a role.
+- Shared chat: `POST /chat`, `GET /chat/history`, `DELETE /chat/history`. Each operation is scoped to the authenticated account.
+- Shared PDFs: `GET /pdf`, `POST /pdf/upload`, `DELETE /pdf/{pdf_id}`. Members see and delete only their own PDFs; admins can manage all PDFs.
+- Shared vector operations: `GET /vectordb/pdf`, `DELETE /vectordb/pdf`, `POST /vectordb/ingest/all`, `POST /vectordb/ingest/pdf/{pdf_id}`. Visibility and ingestion scope are determined by the authenticated role.
+- Admin-only operations include `GET /admin/chat/history/{user_id}`, `DELETE /admin/pdf/public`, targeted vector cleanup, and user administration.
+- Admins can explicitly override PDF indexing visibility through `/admin/vectordb/ingest/pdf/{pdf_id}/public` and `/admin/vectordb/ingest/pdf/{pdf_id}/private`.
 - Configure unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` values; startup authentication fails closed if either is missing.
 - `MAX_PDF_UPLOAD_BYTES` defaults to 20 MiB per PDF. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.
 - Set `CORS_ALLOWED_ORIGINS` to the exact frontend origins for the deployment; do not use wildcard origins with credentials.
 - Authentication uses revocable opaque server-side sessions in `HttpOnly` cookies and CSRF tokens for state-changing requests. Set `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
-- User ingestion and retrieval management: `/user/vectordb/...`
-- User chat and history: `/user/chat`, `/user/chat/history`
-- Admin users, PDFs, ingestion, and chat history: `/admin/...`
+- Shared chat, PDF, and vector operations are exposed once and use the authenticated session to apply account/role scope.
+- Admin-only cross-account management and overrides are exposed under `/admin/...`.
 
 ## Project Structure
 
@@ -134,8 +136,8 @@ backend/
 ├── app/
 │   ├── main.py                 # FastAPI application and router registration
 │   ├── api/
-│   │   ├── admin/              # Admin HTTP endpoints
-│   │   ├── user/               # User HTTP endpoints
+│   │   ├── admin/              # Admin-only HTTP endpoints
+│   │   ├── shared/             # Role-aware shared HTTP endpoints
 │   │   └── dependencies.py     # FastAPI dependency wiring
 │   ├── application/            # Use cases, independent of FastAPI
 │   ├── core/                   # Configuration and cross-cutting concerns

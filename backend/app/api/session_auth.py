@@ -3,8 +3,13 @@ import hashlib
 import hmac
 from typing import Literal
 
-from fastapi import APIRouter, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
+from app.api.auth_dependencies import get_credential_authenticator
+from app.application.authentication import (
+    AuthenticationConfigurationError,
+    CredentialAuthenticator,
+)
 from app.core.config import (
     CORS_ALLOWED_ORIGINS,
     SESSION_COOKIE_SECURE,
@@ -16,6 +21,8 @@ from app.infrastructure.auth.session_store import (
     get_session_by_token,
     revoke_session,
 )
+from app.core.logging import log_event
+from app.schemas.auth import LoginRequest, LoginResponse
 
 SESSION_COOKIE_NAME = "knowledge_session"
 CSRF_COOKIE_NAME = "knowledge_csrf"
@@ -73,6 +80,10 @@ def get_session_principal(
     if stored is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Session expired or invalid.")
     return _principal_from_session(request, stored, expected_role)
+
+
+def require_session(request: Request) -> SessionPrincipal:
+    return get_session_principal(request)
 
 
 def get_optional_session_principal(request: Request) -> SessionPrincipal | None:
@@ -139,6 +150,38 @@ def start_session(
         revoke_session(previous_token)
     token, csrf_token, _ = create_session(username, role)
     set_session_cookies(response, token, csrf_token)
+
+
+@router.post("/auth/login", response_model=LoginResponse)
+def login(
+    credentials: LoginRequest,
+    request: Request,
+    response: Response,
+    authenticator: CredentialAuthenticator = Depends(get_credential_authenticator),
+):
+    validate_login_origin(request)
+    try:
+        identity = authenticator.authenticate(credentials.username, credentials.password)
+    except AuthenticationConfigurationError as error:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(error),
+        ) from error
+
+    if identity is None:
+        log_event(credentials.username, "auth_login", "failed")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password.",
+        )
+
+    start_session(response, request, identity.username, identity.role)
+    log_event(identity.username, "auth_login", f"success role={identity.role}")
+    return LoginResponse(
+        authenticated=True,
+        role=identity.role,
+        username=identity.username,
+    )
 
 
 @router.get("/auth/session")

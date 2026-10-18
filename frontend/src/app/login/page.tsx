@@ -2,12 +2,11 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useAuth, type UserRole } from "@/features/auth/auth-context";
+import { useAuth } from "@/features/auth/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
   const { ready, signedIn, signIn, error: authError } = useAuth();
-  const [role, setRole] = useState<UserRole>("user");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,7 +21,7 @@ export default function LoginPage() {
     setError("");
     setBusy(true);
     try {
-      await signIn(role, username, password);
+      await signIn(username, password);
       router.replace("/chat");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Unable to sign in.");
@@ -47,10 +46,6 @@ export default function LoginPage() {
         <form className="login-card" onSubmit={submit}>
           <h2>Welcome back</h2>
           <p>Sign in to your knowledge workspace.</p>
-          <div className="role-toggle" aria-label="Account type">
-            <button type="button" className={role === "user" ? "active" : ""} onClick={() => setRole("user")}>Member</button>
-            <button type="button" className={role === "admin" ? "active" : ""} onClick={() => setRole("admin")}>Admin</button>
-          </div>
           <div className="field">
             <label htmlFor="username">Username</label>
             <input id="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />

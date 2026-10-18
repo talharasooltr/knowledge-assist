@@ -1,8 +1,7 @@
 import getpass
-import requests
-from requests.auth import HTTPBasicAuth
 from client_logger import log_client_event
 import pprint
+from api_client import ApiClient
 
 BASE_URL = "http://127.0.0.1:8000"
 
@@ -12,11 +11,14 @@ def admin_login():
         username = input("Admin username: ").strip()
         password = getpass.getpass("Password: ")
         try:
-            res = requests.get(f"{BASE_URL}/admin/auth/check", auth=HTTPBasicAuth(username, password))
-            if res.status_code == 200:
+            client = ApiClient(BASE_URL)
+            res = client.login(username, password)
+            if res.status_code == 200 and res.json().get("role") == "admin":
                 print("✅ Admin authentication successful!\n")
                 log_client_event(username, "admin_login", "success", "login succeeded", is_admin=True)
-                return username, password
+                return username, client
+            if res.status_code == 200:
+                print("❌ This client requires an admin account.\n")
             else:
                 print("❌ Incorrect admin credentials. Please try again.\n")
                 log_client_event(username, "admin_login", "fail", f"login failed: {res.text}", is_admin=True)
@@ -34,25 +36,25 @@ def user_management_menu(auth):
         print("0. Back to main menu")
         choice = input("Select option: ").strip()
         if choice == "1":
-            res = requests.get(f"{BASE_URL}/admin/users", auth=auth)
+            res = auth.get("/admin/users")
             log_client_event(auth.username, "admin_list_users", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             print("\nUsers:")
             pprint.pprint(res.json())
         elif choice == "2":
             username = input("New username: ").strip()
             password = getpass.getpass("New password: ")
-            res = requests.post(f"{BASE_URL}/admin/users", json={"username": username, "password": password}, auth=auth)
+            res = auth.post("/admin/users", json={"username": username, "password": password})
             log_client_event(auth.username, "admin_add_user", "success" if res.status_code == 200 else "fail", f"username={username}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "3":
             username = input("Username to delete: ").strip()
-            res = requests.delete(f"{BASE_URL}/admin/users/{username}", auth=auth)
+            res = auth.delete(f"/admin/users/{username}")
             log_client_event(auth.username, "admin_delete_user", "success" if res.status_code == 200 else "fail", f"username={username}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "4":
             username = input("Username to reset password: ").strip()
             password = getpass.getpass("New password: ")
-            res = requests.post(f"{BASE_URL}/admin/users/{username}/reset_password", json={"password": password}, auth=auth)
+            res = auth.post(f"/admin/users/{username}/reset_password", json={"password": password})
             log_client_event(auth.username, "admin_reset_password", "success" if res.status_code == 200 else "fail", f"username={username}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "0":
@@ -68,7 +70,7 @@ def chat_management_menu(auth):
         choice = input("Select option: ").strip()
         if choice == "1":
             user_id = input("User ID: ").strip()
-            res = requests.get(f"{BASE_URL}/admin/chat/history/{user_id}", auth=auth)
+            res = auth.get(f"/admin/chat/history/{user_id}")
             log_client_event(auth.username, "admin_view_chat_history", "success" if res.status_code == 200 else "fail", f"user_id={user_id}, response={res.text}", is_admin=True)
             data = res.json()
             print(f"\nChat history for {user_id}:")
@@ -92,7 +94,7 @@ def data_management_menu(auth):
             filepaths = input("Enter PDF file paths (comma separated): ").split(",")
             files = [("files", (fp.strip(), open(fp.strip(), "rb"), "application/pdf")) for fp in filepaths if fp.strip()]
             is_public = input("Is public? (1 for yes, 0 for no): ").strip()
-            res = requests.post(f"{BASE_URL}/admin/pdf/upload", files=files, data={"is_public": is_public}, auth=auth)
+            res = auth.post("/pdf/upload", files=files, data={"is_public": is_public})
             log_client_event(auth.username, "admin_upload_pdf", "success" if res.status_code == 200 else "fail", f"files={filepaths}, is_public={is_public}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "2":
@@ -103,25 +105,25 @@ def data_management_menu(auth):
                 if fname.lower().endswith(".pdf"):
                     files.append(("files", (fname, open(os.path.join(folder, fname), "rb"), "application/pdf")))
             is_public = input("Is public? (1 for yes, 0 for no): ").strip()
-            res = requests.post(f"{BASE_URL}/admin/pdf/upload", files=files, data={"is_public": is_public}, auth=auth)
+            res = auth.post("/pdf/upload", files=files, data={"is_public": is_public})
             log_client_event(auth.username, "admin_upload_folder", "success" if res.status_code == 200 else "fail", f"folder={folder}, is_public={is_public}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "3":
-            res = requests.get(f"{BASE_URL}/admin/pdf", auth=auth)
+            res = auth.get("/pdf")
             log_client_event(auth.username, "admin_list_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             print("\nPDFs:")
             pprint.pprint(res.json())
         elif choice == "4":
-            listing = requests.get(f"{BASE_URL}/admin/pdf", auth=auth).json().get("pdfs", [])
+            listing = auth.get("/pdf").json().get("pdfs", [])
             pprint.pprint(listing)
             pdf_ids = input("Enter PDF IDs to delete (comma separated): ").split(",")
             for value in pdf_ids:
                 pdf_id = int(value.strip())
-                res = requests.delete(f"{BASE_URL}/admin/pdf/{pdf_id}", auth=auth)
+                res = auth.delete(f"/pdf/{pdf_id}")
                 log_client_event(auth.username, "admin_delete_pdf", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=True)
                 pprint.pprint(res.json())
         elif choice == "5":
-            res = requests.delete(f"{BASE_URL}/admin/pdf/public", auth=auth)
+            res = auth.delete("/admin/pdf/public")
             log_client_event(auth.username, "admin_delete_all_public_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "0":
@@ -141,11 +143,11 @@ def vectordb_management_menu(auth):
         print("0. Back to main menu")
         choice = input("Select option: ").strip()
         if choice == "1":
-            res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/all", auth=auth)
+            res = auth.post("/vectordb/ingest/all")
             log_client_event(auth.username, "admin_vectordb_ingest_all", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "2":
-            listing = requests.get(f"{BASE_URL}/admin/pdf", auth=auth).json().get("pdfs", [])
+            listing = auth.get("/pdf").json().get("pdfs", [])
             pprint.pprint(listing)
             pdf_id = int(input("PDF ID: ").strip())
             print("Ingest as:")
@@ -153,33 +155,36 @@ def vectordb_management_menu(auth):
             print("2. Specific user")
             ingest_choice = input("Select option: ").strip()
             if ingest_choice == "1":
-                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/pdf/{pdf_id}/public", auth=auth)
+                res = auth.post(f"/admin/vectordb/ingest/pdf/{pdf_id}/public")
                 log_client_event(auth.username, "admin_vectordb_ingest_public", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=True)
                 pprint.pprint(res.json())
             elif ingest_choice == "2":
                 user_id = input("User ID: ").strip()
-                res = requests.post(f"{BASE_URL}/admin/vectordb/ingest/pdf/{pdf_id}/private?user_id={user_id}", auth=auth)
+                res = auth.post(
+                    f"/admin/vectordb/ingest/pdf/{pdf_id}/private",
+                    params={"user_id": user_id},
+                )
                 log_client_event(auth.username, "admin_vectordb_ingest_private", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, user_id={user_id}, response={res.text}", is_admin=True)
                 pprint.pprint(res.json())
             else:
                 print("Invalid option.")
         elif choice == "3":
             owner = input("User ID: ").strip()
-            res = requests.delete(f"{BASE_URL}/admin/vectordb/pdf/user/{owner}", auth=auth)
+            res = auth.delete(f"/admin/vectordb/pdf/user/{owner}")
             log_client_event(auth.username, "admin_vectordb_remove_by_user", "success" if res.status_code == 200 else "fail", f"owner={owner}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "4":
-            res = requests.get(f"{BASE_URL}/admin/vectordb/pdf", auth=auth)
+            res = auth.get("/vectordb/pdf")
             log_client_event(auth.username, "admin_vectordb_list", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             print("\nVectorDB Sources:")
             pprint.pprint(res.json())
         elif choice == "5":
-            res = requests.delete(f"{BASE_URL}/admin/vectordb/memory", auth=auth)
+            res = auth.delete("/admin/vectordb/memory")
             log_client_event(auth.username, "admin_vectordb_clear_all_memory", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "6":
             user_id = input("User ID: ").strip()
-            res = requests.delete(f"{BASE_URL}/admin/vectordb/memory/{user_id}", auth=auth)
+            res = auth.delete(f"/admin/vectordb/memory/{user_id}")
             log_client_event(auth.username, "admin_vectordb_clear_user_memory", "success" if res.status_code == 200 else "fail", f"user_id={user_id}, response={res.text}", is_admin=True)
             pprint.pprint(res.json())
         elif choice == "0":
@@ -188,8 +193,7 @@ def vectordb_management_menu(auth):
             print("Invalid option.")
 
 def main():
-    username, password = admin_login()
-    auth = HTTPBasicAuth(username, password)
+    username, auth = admin_login()
     while True:
         print("\n=== Admin Main Menu ===")
         print("1. User Management")

@@ -7,11 +7,12 @@ export type UserRole = "user" | "admin";
 
 type AuthState = { role: UserRole; username: string };
 type SessionResponse = { authenticated: false } | ({ authenticated: true } & AuthState);
+type LoginResponse = { authenticated: true } & AuthState;
 type AuthContextValue = AuthState & {
   ready: boolean;
   signedIn: boolean;
   error: string;
-  signIn: (role: UserRole, username: string, password: string) => Promise<void>;
+  signIn: (username: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -45,14 +46,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function signIn(role: UserRole, username: string, password: string) {
+  async function signIn(username: string, password: string) {
     const normalizedUsername = username.trim();
-    await apiRequest(`/${role}/auth/login`, {
+    const result = await apiRequest<LoginResponse>("/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username: normalizedUsername, password }),
     });
-    setSession({ role, username: normalizedUsername });
+    setSession({ role: result.role, username: result.username });
     setError("");
   }
 

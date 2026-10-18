@@ -5,7 +5,6 @@ from datetime import datetime
 import random
 import argparse
 import sys
-from requests.auth import HTTPBasicAuth
 
 BASE_URL = "http://127.0.0.1:8000"
 # BASE_URL = "http://40.82.161.202:8000"
@@ -36,20 +35,24 @@ def parse_args():
     parser.add_argument("--log-to-prompt", action="store_true", help="Enable logging to console")
     return parser.parse_args()
 
-def get_auth(user_index):
-    return HTTPBasicAuth(*test_users[user_index % len(test_users)])
-
 async def send_chat(index, user_id, user_index, delay, log_to_prompt, log_to_file, lock, success_count):
-    chat_api = f"{BASE_URL}/user/chat"
-    history_api = f"{BASE_URL}/user/chat/history"
+    chat_api = f"{BASE_URL}/chat"
+    history_api = f"{BASE_URL}/chat/history"
+    username, password = test_users[user_index % len(test_users)]
     await asyncio.sleep(delay)
     message = f"{random.choice(question_list)} {index}"
     try:
         async with httpx.AsyncClient(timeout=20.0) as ac:
+            login_response = await ac.post(
+                f"{BASE_URL}/auth/login",
+                json={"username": username, "password": password},
+            )
+            assert login_response.status_code == 200
+            csrf_token = ac.cookies.get("knowledge_csrf")
             response = await ac.post(
                 chat_api,
-                json={"user_id": user_id, "message": message},
-                auth=get_auth(user_index)
+                json={"message": message},
+                headers={"X-CSRF-Token": csrf_token or ""},
             )
             assert response.status_code == 200
             json_data = response.json()
@@ -58,7 +61,7 @@ async def send_chat(index, user_id, user_index, delay, log_to_prompt, log_to_fil
                 success_count["count"] += 1
             await asyncio.sleep(1)
             now = datetime.now()
-            history_response = await ac.get(history_api, auth=get_auth(user_index))
+            history_response = await ac.get(history_api)
             history = history_response.json().get("history", [])
             log_line = (
                 f"{'*' * 30}\n"

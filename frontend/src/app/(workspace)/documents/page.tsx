@@ -16,25 +16,17 @@ export default function DocumentsPage() {
 
   const loadFiles = useCallback(async () => {
     try {
-      const fileResult = await apiRequest<{ pdfs: Pdf[] }>(role === "admin" ? "/admin/pdf" : "/user/pdf");
+      const fileResult = await apiRequest<{ pdfs: Pdf[] }>("/pdf");
       setFiles(fileResult.pdfs || []);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load documents.");
     }
-  }, [role]);
+  }, []);
 
   useEffect(() => { void loadFiles(); }, [loadFiles]);
 
   async function ingestDocument(file: UploadedPdf) {
-    let path: string;
-    if (role === "admin") {
-      path = file.is_public
-        ? `/admin/vectordb/ingest/pdf/${file.id}/public`
-        : `/admin/vectordb/ingest/pdf/${file.id}/private?user_id=${encodeURIComponent(file.uploaded_by || "admin")}`;
-    } else {
-      path = `/user/vectordb/ingest/pdf/${file.id}`;
-    }
-    await apiRequest(path, { method: "POST" });
+    await apiRequest(`/vectordb/ingest/pdf/${file.id}`, { method: "POST" });
   }
 
   async function indexFile(file: Pdf) {
@@ -59,7 +51,7 @@ export default function DocumentsPage() {
     setBusy(true); setError(""); setStatus("");
     let uploaded: string[] = [];
     try {
-      const result = await apiRequest<{ uploaded: string[]; uploaded_pdfs: UploadedPdf[]; errors?: { filename: string; error: string }[] }>(role === "admin" ? "/admin/pdf/upload" : "/user/pdf/upload", { method: "POST", body: form });
+      const result = await apiRequest<{ uploaded: string[]; uploaded_pdfs: UploadedPdf[]; errors?: { filename: string; error: string }[] }>("/pdf/upload", { method: "POST", body: form });
       uploaded = result.uploaded || [];
       for (const [index, file] of result.uploaded_pdfs.entries()) {
         setStatus(`Uploaded ${uploaded.length} document(s). Indexing ${index + 1} of ${result.uploaded_pdfs.length}...`);
@@ -85,7 +77,7 @@ export default function DocumentsPage() {
   async function deleteFile(file: Pdf) {
     setError(""); setStatus("");
     try {
-      await apiRequest(`${role === "admin" ? "/admin/pdf" : "/user/pdf"}/${file.id}`, {
+      await apiRequest(`/pdf/${file.id}`, {
         method: "DELETE",
       });
       setStatus(`${file.filename} removed.`);

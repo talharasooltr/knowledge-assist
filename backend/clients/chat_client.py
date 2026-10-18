@@ -1,6 +1,5 @@
-import requests
 import getpass
-from requests.auth import HTTPBasicAuth
+from api_client import ApiClient
 
 BASE_URL = "http://127.0.0.1:8000"
 # BASE_URL = "http://40.82.161.202:8000"
@@ -11,19 +10,21 @@ def authenticate():
         user_id = input("User ID: ").strip()
         password = getpass.getpass("Password: ")
         try:
-            res = requests.get(f"{BASE_URL}/user/auth/check", auth=HTTPBasicAuth(user_id, password))
-            if res.status_code == 200 and res.json().get("success"):
+            client = ApiClient(BASE_URL)
+            res = client.login(user_id, password)
+            if res.status_code == 200 and res.json().get("role") == "user":
                 print("✅ Authentication successful!\n")
-                return user_id, password
+                return user_id, client
+            if res.status_code == 200:
+                print("❌ This client is for member accounts.\n")
             else:
                 print("❌ Incorrect username or password. Please try again.\n")
         except Exception as e:
             print(f"❌ Error connecting to server: {e}\n")
 
-def print_history(auth):
-    history_api = f"{BASE_URL}/user/chat/history"
+def print_history(client):
     try:
-        res = requests.get(history_api, auth=auth)
+        res = client.get("/chat/history")
         print("*" * 10)
         if res.status_code == 200:
             history = res.json().get("history", [])
@@ -37,11 +38,8 @@ def print_history(auth):
         print(f"Error fetching history: {e}")
 
 def chat():
-    chat_api = f"{BASE_URL}/user/chat"
-
     # Authenticate user first
-    user_id, password = authenticate()
-    auth = HTTPBasicAuth(user_id, password)
+    user_id, client = authenticate()
     
     print("Chat started! Type 'exit' or 'quit' to end the session.")
     print("-" * 50)
@@ -52,11 +50,11 @@ def chat():
             print("Goodbye!")
             break
         try:
-            res = requests.post(chat_api, json={"user_id": user_id, "message": msg}, auth=auth)
+            res = client.post("/chat", json={"message": msg})
             
             if res.status_code == 200:
                 response_data = res.json()
-                print_history(auth)
+                print_history(client)
                 print("Prompt: ", response_data.get("prompt", ""))
                 print("*" * 10)
                 print("🤖 Predict:", response_data.get("response", ""))

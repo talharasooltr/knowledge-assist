@@ -1,23 +1,21 @@
-import requests
-from requests.auth import HTTPBasicAuth
 import getpass
 import os
 from client_logger import log_client_event
 import pprint
+from api_client import ApiClient
 
 BASE_URL = "http://127.0.0.1:8000"
 
 class UserToolsManager:
-    def __init__(self, username, password):
+    def __init__(self, username, client: ApiClient):
         self.username = username
-        self.password = password
-        self.auth = HTTPBasicAuth(username, password)
+        self.client = client
 
     def upload_pdfs(self):
         filepaths = input("Enter PDF file paths (comma separated): ").split(",")
         files = [("files", (fp.strip(), open(fp.strip(), "rb"), "application/pdf")) for fp in filepaths if fp.strip()]
         is_public = input("Is public? (1 for yes, 0 for no): ").strip()
-        res = requests.post(f"{BASE_URL}/user/pdf/upload", files=files, data={"is_public": is_public}, auth=self.auth)
+        res = self.client.post("/pdf/upload", files=files, data={"is_public": is_public})
         log_client_event(self.username, "user_upload_pdfs", "success" if res.status_code == 200 else "fail", f"files={filepaths}, is_public={is_public}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
@@ -28,25 +26,25 @@ class UserToolsManager:
             if fname.lower().endswith(".pdf"):
                 files.append(("files", (fname, open(os.path.join(folder, fname), "rb"), "application/pdf")))
         is_public = input("Is public? (1 for yes, 0 for no): ").strip()
-        res = requests.post(f"{BASE_URL}/user/pdf/upload", files=files, data={"is_public": is_public}, auth=self.auth)
+        res = self.client.post("/pdf/upload", files=files, data={"is_public": is_public})
         log_client_event(self.username, "user_upload_folder", "success" if res.status_code == 200 else "fail", f"folder={folder}, is_public={is_public}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def list_my_pdfs(self):
-        res = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth)
+        res = self.client.get("/pdf")
         log_client_event(self.username, "user_list_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def ingest_my_pdf(self):
-        listing = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth).json().get("pdfs", [])
+        listing = self.client.get("/pdf").json().get("pdfs", [])
         pprint.pprint(listing)
         pdf_id = int(input("PDF ID to ingest: ").strip())
-        res = requests.post(f"{BASE_URL}/user/vectordb/ingest/pdf/{pdf_id}", auth=self.auth)
+        res = self.client.post(f"/vectordb/ingest/pdf/{pdf_id}")
         log_client_event(self.username, "user_ingest_pdf", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def ingest_all_my_pdfs(self):
-        res = requests.post(f"{BASE_URL}/user/vectordb/ingest/all", auth=self.auth)
+        res = self.client.post("/vectordb/ingest/all")
         log_client_event(self.username, "user_ingest_all_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
@@ -54,27 +52,27 @@ class UserToolsManager:
         print("Not implemented. Please contact admin.")
 
     def delete_all_my_pdfs_from_vector_store(self):
-        res = requests.delete(f"{BASE_URL}/user/vectordb/pdf/all", auth=self.auth)
+        res = self.client.delete("/vectordb/pdf")
         log_client_event(self.username, "user_remove_all_pdfs_vectordb", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def delete_my_pdf_from_data_by_id(self):
-        listing = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth).json().get("pdfs", [])
+        listing = self.client.get("/pdf").json().get("pdfs", [])
         pprint.pprint(listing)
         pdf_id = int(input("PDF ID to delete: ").strip())
-        res = requests.delete(f"{BASE_URL}/user/pdf/{pdf_id}", auth=self.auth)
+        res = self.client.delete(f"/pdf/{pdf_id}")
         log_client_event(self.username, "user_delete_pdf_data", "success" if res.status_code == 200 else "fail", f"pdf_id={pdf_id}, response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
     def delete_all_my_pdfs_from_data(self):
-        res = requests.get(f"{BASE_URL}/user/pdf", auth=self.auth)
+        res = self.client.get("/pdf")
         pdfs = res.json().get("pdfs", [])
         pdf_ids = [pdf["id"] for pdf in pdfs]
         if not pdf_ids:
             print("No PDFs to delete.")
             return
         results = [
-            requests.delete(f"{BASE_URL}/user/pdf/{pdf_id}", auth=self.auth)
+            self.client.delete(f"/pdf/{pdf_id}")
             for pdf_id in pdf_ids
         ]
         success = all(response.status_code == 200 for response in results)
@@ -82,7 +80,7 @@ class UserToolsManager:
         pprint.pprint([response.json() for response in results])
 
     def list_ingested_pdfs(self):
-        res = requests.get(f"{BASE_URL}/user/ingested_pdfs", auth=self.auth)
+        res = self.client.get("/vectordb/pdf")
         log_client_event(self.username, "user_list_ingested_pdfs", "success" if res.status_code == 200 else "fail", f"response={res.text}", is_admin=False)
         pprint.pprint(res.json())
 
@@ -131,11 +129,12 @@ def authenticate():
         username = input("User ID: ").strip()
         password = getpass.getpass("Password: ")
         try:
-            res = requests.get(f"{BASE_URL}/user/auth/check", auth=HTTPBasicAuth(username, password))
-            if res.status_code == 200:
+            client = ApiClient(BASE_URL)
+            res = client.login(username, password)
+            if res.status_code == 200 and res.json().get("role") == "user":
                 print("✅ Authentication successful!\n")
                 log_client_event(username, "user_login", "success", "login succeeded", is_admin=False)
-                return username, password
+                return username, client
             else:
                 print("❌ Incorrect username or password. Please try again.\n")
                 log_client_event(username, "user_login", "fail", f"login failed: {res.text}", is_admin=False)
@@ -144,6 +143,6 @@ def authenticate():
             log_client_event(username, "user_login", "fail", f"connection error: {e}", is_admin=False)
 
 if __name__ == "__main__":
-    username, password = authenticate()
-    manager = UserToolsManager(username, password)
+    username, client = authenticate()
+    manager = UserToolsManager(username, client)
     manager.main_menu()

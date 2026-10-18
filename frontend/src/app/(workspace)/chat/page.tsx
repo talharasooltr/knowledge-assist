@@ -20,7 +20,7 @@ function renderAnswer(content: string, citations: Citation[], messageIndex: numb
 }
 
 export default function ChatPage() {
-  const { role, username, ready, signedIn } = useAuth();
+  const { ready, signedIn } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState("");
@@ -38,10 +38,7 @@ export default function ChatPage() {
 
     setLoadingHistory(true);
     setError("");
-    const historyPath = role === "user"
-      ? "/user/chat/history"
-      : `/admin/chat/history/${encodeURIComponent(username)}`;
-    void apiRequest<{ history: Message[] }>(historyPath)
+    void apiRequest<{ history: Message[] }>("/chat/history")
       .then((result) => {
         if (active) setMessages(result.history ?? []);
       })
@@ -53,7 +50,7 @@ export default function ChatPage() {
       });
 
     return () => { active = false; };
-  }, [ready, role, signedIn, username]);
+  }, [ready, signedIn]);
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,10 +62,10 @@ export default function ChatPage() {
     setMessages((current) => [...current, { role: "user", content: message }]);
     setBusy(true);
     try {
-      const result = await apiRequest<{ response: string; citations: Citation[] }>(`/${role}/chat`, {
+      const result = await apiRequest<{ response: string; citations: Citation[] }>("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: username, message }),
+        body: JSON.stringify({ message }),
       });
       setMessages((current) => [...current, {
         role: "assistant",

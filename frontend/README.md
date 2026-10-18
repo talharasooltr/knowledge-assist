@@ -42,7 +42,7 @@ NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 
 Use the same hostname (`localhost`) for the frontend and backend during local development so browser session cookies remain same-site. The frontend uses revocable server-side sessions in `HttpOnly` cookies and sends a CSRF token for state-changing requests.
 
-The frontend uses the backend API for authentication, chat, document uploads, document management, and administrator user management.
+Members and administrators use the same sign-in form; the backend determines the account role from verified credentials. The frontend uses the backend API for authentication, chat, document uploads, document management, and administrator user management.
 
 ## Production Build
 

@@ -7,11 +7,7 @@ from app.api.admin import user_manage
 from app.api.admin import data_manage
 from app.api.admin import chat_manage
 from app.api.admin import vectordb_manage
-from app.api.admin import admin_auth
-from app.api.user import chat_manage as user_chat_manage
-from app.api.user import data_manage as user_data_manage
-from app.api.user import vectordb_manage as user_vectordb_manage
-from app.api.user import user_auth
+from app.api.shared import chat, documents, vectordb
 
 app = FastAPI()
 app.add_middleware(
@@ -22,16 +18,12 @@ app.add_middleware(
 	allow_headers=["*"],
 )
 app.include_router(session_auth.router)
+app.include_router(chat.router)
+app.include_router(documents.router)
+app.include_router(vectordb.router)
 
 # Admin endpoint
 app.include_router(user_manage.router)
 app.include_router(data_manage.router)
 app.include_router(chat_manage.router)
 app.include_router(vectordb_manage.router)
-app.include_router(admin_auth.router)
-
-# User endpoint
-app.include_router(user_chat_manage.router)
-app.include_router(user_data_manage.router)
-app.include_router(user_vectordb_manage.router)
-app.include_router(user_auth.router)
