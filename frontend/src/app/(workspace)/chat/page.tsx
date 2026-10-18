@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/features/auth/auth-context";
+import { PageHeader } from "@/components/page-header";
 
 type Citation = { number: number; filename: string; page: number | null };
 type Message = { role: "user" | "assistant"; content: string; citations?: Citation[] };
@@ -30,14 +31,8 @@ export default function ChatPage() {
   useEffect(() => {
     let active = true;
     if (!ready) return () => { active = false; };
-    if (!signedIn) {
-      setMessages([]);
-      setLoadingHistory(false);
-      return () => { active = false; };
-    }
+    if (!signedIn) return () => { active = false; };
 
-    setLoadingHistory(true);
-    setError("");
     void apiRequest<{ history: Message[] }>("/chat/history")
       .then((result) => {
         if (active) setMessages(result.history ?? []);
@@ -81,9 +76,7 @@ export default function ChatPage() {
 
   return (
     <>
-      <header className="topline">
-        <div><div className="eyebrow">Knowledge workspace</div><h1>Ask your knowledge</h1><div className="subtle">Find answers across the information your team has collected.</div></div>
-      </header>
+      <PageHeader eyebrow="Workspace" title="Ask your knowledge" description="Answers are based on the documents available to you." />
       {error && <div className="error" role="alert">{error}</div>}
       <section className="panel chat-panel">
         <div className="chat-list" aria-live="polite">

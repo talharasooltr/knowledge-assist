@@ -27,8 +27,11 @@ export function WorkspaceShell({ children }: { children: ReactNode }) {
   return (
     <div className={`app-shell ${pathname === "/chat" ? "app-shell-chat" : ""}`}>
       <aside className="sidebar">
-        <Link className="brand" href="/chat"><span className="brand-mark">◈</span> Knowledge Assistant</Link>
-        <div className="sidebar-user"><strong>{username}</strong><br />{role === "admin" ? "Administrator" : "Member"}</div>
+        <Link className="brand" href="/chat"><span className="brand-mark" aria-hidden="true">K</span><span>Knowledge Assistant</span></Link>
+        <div className="sidebar-user">
+          <span className="avatar" aria-hidden="true">{username.slice(0, 1).toUpperCase()}</span>
+          <span><strong>{username}</strong><small>{role === "admin" ? "Administrator" : "Member"}</small></span>
+        </div>
         <nav className="nav" aria-label="Workspace">
           {navigation.map((item) => <Link className={pathname === item.href ? "active" : ""} href={item.href} key={item.href}>{item.label}</Link>)}
           {role === "admin" && <Link className={pathname.startsWith("/admin/users") ? "active" : ""} href="/admin/users">People</Link>}

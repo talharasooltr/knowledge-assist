@@ -3,6 +3,7 @@
 import { type FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/features/auth/auth-context";
+import Link from "next/link";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -34,18 +35,21 @@ export default function LoginPage() {
 
   return (
     <main className="login-shell">
-      <section className="login-aside">
-        <div className="brand"><span className="brand-mark">◈</span> Knowledge Assistant</div>
-        <div>
-          <h1>All your knowledge, ready to answer.</h1>
-          <p>Ask clear questions and get answers grounded in your documents.</p>
+      <section className="login-content">
+        <Link className="brand login-brand" href="/login">
+          <span className="brand-mark" aria-hidden="true">K</span>
+          <span>Knowledge Assistant</span>
+        </Link>
+        <div className="login-intro">
+          <div className="eyebrow">Your knowledge workspace</div>
+          <h1>Answers grounded in your documents.</h1>
+          <p>Ask a question. See where the answer came from.</p>
         </div>
-        <div className="aside-note">A focused workspace for private and shared knowledge.</div>
-      </section>
-      <section className="login-panel">
         <form className="login-card" onSubmit={submit}>
-          <h2>Welcome back</h2>
-          <p>Sign in to your knowledge workspace.</p>
+          <div className="login-card-heading">
+            <h2>Sign in</h2>
+            <p>Continue to your workspace.</p>
+          </div>
           <div className="field">
             <label htmlFor="username">Username</label>
             <input id="username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required />

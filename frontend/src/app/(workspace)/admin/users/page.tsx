@@ -2,6 +2,7 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
+import { PageHeader } from "@/components/page-header";
 
 type User = { id: number; username: string };
 
@@ -13,12 +14,19 @@ export default function AdminUsersPage() {
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const loadUsers = useCallback(async () => {
-    try { setUsers(await apiRequest<User[]>("/admin/users")); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : "Could not load users."); }
-  }, []);
+  const loadUsers = useCallback(() => apiRequest<User[]>("/admin/users"), []);
 
-  useEffect(() => { void loadUsers(); }, [loadUsers]);
+  useEffect(() => {
+    let active = true;
+    void loadUsers()
+      .then((loadedUsers) => {
+        if (active) setUsers(loadedUsers);
+      })
+      .catch((caught) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Could not load users.");
+      });
+    return () => { active = false; };
+  }, [loadUsers]);
 
   async function createUser(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -31,7 +39,7 @@ export default function AdminUsersPage() {
       });
       setStatus(`User ${created.username} was created.`);
       setUsername(""); setPassword("");
-      await loadUsers();
+      setUsers(await loadUsers());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not create user.");
     } finally { setBusy(false); }
@@ -43,7 +51,7 @@ export default function AdminUsersPage() {
     try {
       await apiRequest(`/admin/users/${encodeURIComponent(user.username)}`, { method: "DELETE" });
       setStatus(`User ${user.username} was deleted.`);
-      await loadUsers();
+      setUsers(await loadUsers());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not delete user.");
     } finally { setBusy(false); }
@@ -51,17 +59,17 @@ export default function AdminUsersPage() {
 
   return (
     <>
-      <header className="topline"><div><div className="eyebrow">Administration</div><h1>People and access</h1><div className="subtle">Manage the people who can use this workspace.</div></div></header>
+      <PageHeader eyebrow="Administration" title="People" description="Manage access to this workspace." />
       {error && <div className="error" role="alert">{error}</div>}
       {status && <div className="status" role="status">{status}</div>}
       <section className="grid people-grid">
         <form className="panel card people-card" onSubmit={createUser}>
-          <h3>Create a user</h3><p>Add a member who can sign in to this workspace.</p>
+          <h2 className="section-title">Add a member</h2><p>Create an account for someone who needs access.</p>
           <div className="field"><label htmlFor="new-username">Username</label><input id="new-username" value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="off" required /></div>
           <div className="field"><label htmlFor="new-user-password">Temporary password</label><input id="new-user-password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="new-password" required /></div>
           <button className="primary full" disabled={busy}>{busy ? "Creating..." : "Create user"}</button>
         </form>
-        <section className="panel card people-card"><h3>Workspace members</h3><div className="list people-list">{users.map((user) => <div className="list-row" key={user.id}><div><strong>{user.username}</strong><br /><small>Member</small></div><button className="mini-button" onClick={() => void deleteUser(user)} disabled={busy}>Delete</button></div>)}</div></section>
+        <section className="panel card people-card"><h2 className="section-title">Members <span className="count">{users.length}</span></h2><div className="list people-list">{users.length ? users.map((user) => <div className="list-row" key={user.id}><div className="document-name"><strong>{user.username}</strong><small>Member</small></div><button className="text-button muted-button" onClick={() => void deleteUser(user)} disabled={busy}>Remove</button></div>) : <div className="empty-list">No members yet.</div>}</div></section>
       </section>
     </>
   );

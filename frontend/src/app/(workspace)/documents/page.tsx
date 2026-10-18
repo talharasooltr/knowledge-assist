@@ -3,6 +3,7 @@
 import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
 import { useAuth } from "@/features/auth/auth-context";
+import { PageHeader } from "@/components/page-header";
 
 type Pdf = { id: number; filename: string; filepath?: string; uploaded_by?: string; is_public?: number; is_indexed: boolean };
 type UploadedPdf = Pick<Pdf, "id" | "filename" | "uploaded_by" | "is_public">;
@@ -15,15 +16,21 @@ export default function DocumentsPage() {
   const [busy, setBusy] = useState(false);
 
   const loadFiles = useCallback(async () => {
-    try {
-      const fileResult = await apiRequest<{ pdfs: Pdf[] }>("/pdf");
-      setFiles(fileResult.pdfs || []);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : "Could not load documents.");
-    }
+    const result = await apiRequest<{ pdfs: Pdf[] }>("/pdf");
+    return result.pdfs || [];
   }, []);
 
-  useEffect(() => { void loadFiles(); }, [loadFiles]);
+  useEffect(() => {
+    let active = true;
+    void loadFiles()
+      .then((loadedFiles) => {
+        if (active) setFiles(loadedFiles);
+      })
+      .catch((caught) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Could not load documents.");
+      });
+    return () => { active = false; };
+  }, [loadFiles]);
 
   async function ingestDocument(file: UploadedPdf) {
     await apiRequest(`/vectordb/ingest/pdf/${file.id}`, { method: "POST" });
@@ -34,7 +41,7 @@ export default function DocumentsPage() {
     try {
       await ingestDocument(file);
       setStatus(`${file.filename} is searchable now.`);
-      await loadFiles();
+      setFiles(await loadFiles());
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not index document.");
     } finally {
@@ -61,13 +68,13 @@ export default function DocumentsPage() {
       if (result.errors?.length) {
         setError(result.errors.map((item) => `${item.filename || "PDF"}: ${item.error}`).join(" "));
       }
-      await loadFiles();
+      setFiles(await loadFiles());
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : "Unknown error.";
       setError(uploaded.length
         ? `Uploaded ${uploaded.length} document(s), but indexing failed: ${message}`
         : `Upload failed: ${message}`);
-      await loadFiles();
+      setFiles(await loadFiles());
     } finally {
       setBusy(false);
       event.target.value = "";
@@ -89,19 +96,24 @@ export default function DocumentsPage() {
 
   return (
     <>
-      <header className="topline"><div><div className="eyebrow">Knowledge workspace</div><h1>Your documents</h1><div className="subtle">Upload and manage the sources behind your answers.</div></div></header>
+      <PageHeader eyebrow="Workspace" title="Documents" description="Manage the sources behind your answers." />
       {error && <div className="error" role="alert">{error}</div>}
       {status && <div className="status" role="status">{status}</div>}
       <section className="grid documents-grid">
         <div className="panel card document-card">
-          <h3>Add a source</h3><p>Upload PDF documents to make them available to the assistant.</p>
-          <div className="upload"><strong>Choose documents</strong><br /><small className="subtle">PDF files are processed into searchable knowledge.</small><input type="file" accept="application/pdf,.pdf" multiple onChange={uploadFiles} disabled={busy} /></div>
+          <h2 className="section-title">Add documents</h2><p>Upload PDFs to make them searchable.</p>
+          <label className="upload">
+            <span className="upload-symbol" aria-hidden="true">+</span>
+            <strong>Choose PDF files</strong>
+            <small>PDF · up to 20 MB per file</small>
+            <input type="file" accept="application/pdf,.pdf" multiple onChange={uploadFiles} disabled={busy} />
+          </label>
         </div>
         <section className="panel card document-card">
-          <h3>Stored documents</h3><p>Sources currently connected to this workspace.</p>
+          <h2 className="section-title">Your library <span className="count">{files.length}</span></h2><p>Only your accessible documents appear here.</p>
           <div className="list document-list">{files.length ? files.map((file) => {
-            return <div className="list-row" key={`${file.id}-${file.filename}`}><div><strong>{file.filename}</strong><br /><small>{file.is_public ? "Shared" : "Private"}</small></div><div>{file.is_indexed ? <span className="subtle" aria-label="Document indexed">Indexed</span> : <button className="mini-button" onClick={() => void indexFile(file)} disabled={busy}>Index</button>} <button className="mini-button" onClick={() => void deleteFile(file)} disabled={busy}>Remove</button></div></div>;
-          }) : <div className="subtle">No documents yet.</div>}</div>
+            return <div className="list-row" key={`${file.id}-${file.filename}`}><div className="document-name"><strong>{file.filename}</strong><small>{file.is_public ? "Shared" : "Private"}</small></div><div className="row-actions">{file.is_indexed ? <span className="state"><span className="state-dot" />Ready</span> : <button className="text-button" onClick={() => void indexFile(file)} disabled={busy}>Index</button>} <button className="text-button muted-button" onClick={() => void deleteFile(file)} disabled={busy}>Remove</button></div></div>;
+          }) : <div className="empty-list">Your library is empty.</div>}</div>
         </section>
       </section>
     </>

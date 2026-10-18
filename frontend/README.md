@@ -44,6 +44,10 @@ Use the same hostname (`localhost`) for the frontend and backend during local de
 
 Members and administrators use the same sign-in form; the backend determines the account role from verified credentials. The frontend uses the backend API for authentication, chat, document uploads, document management, and administrator user management.
 
+## Visual System
+
+The interface uses a restrained, responsive design with shared color, spacing, radius, and shadow tokens defined in `src/app/globals.css`. Keep page headings consistent with the reusable `PageHeader` component and reuse the existing panel, field, button, and status patterns rather than introducing one-off styles. Preserve keyboard focus visibility, reduced-motion support, and narrow-screen layouts when extending the workspace.
+
 ## Production Build
 
 ```bash
