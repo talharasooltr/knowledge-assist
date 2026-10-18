@@ -2,12 +2,10 @@
 
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { useAuth } from "@/features/auth/auth-context";
 
 type User = { id: number; username: string };
 
 export default function AdminUsersPage() {
-  const { auth } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -16,9 +14,9 @@ export default function AdminUsersPage() {
   const [busy, setBusy] = useState(false);
 
   const loadUsers = useCallback(async () => {
-    try { setUsers(await apiRequest<User[]>("/admin/users", auth)); }
+    try { setUsers(await apiRequest<User[]>("/admin/users")); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "Could not load users."); }
-  }, [auth]);
+  }, []);
 
   useEffect(() => { void loadUsers(); }, [loadUsers]);
 
@@ -26,7 +24,7 @@ export default function AdminUsersPage() {
     event.preventDefault();
     setBusy(true); setError(""); setStatus("");
     try {
-      const created = await apiRequest<User>("/admin/users", auth, {
+      const created = await apiRequest<User>("/admin/users", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: username.trim(), password }),
@@ -43,7 +41,7 @@ export default function AdminUsersPage() {
     if (!window.confirm(`Delete user ${user.username}?`)) return;
     setBusy(true); setError(""); setStatus("");
     try {
-      await apiRequest(`/admin/users/${encodeURIComponent(user.username)}`, auth, { method: "DELETE" });
+      await apiRequest(`/admin/users/${encodeURIComponent(user.username)}`, { method: "DELETE" });
       setStatus(`User ${user.username} was deleted.`);
       await loadUsers();
     } catch (caught) {

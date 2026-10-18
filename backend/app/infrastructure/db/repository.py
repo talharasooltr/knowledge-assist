@@ -5,7 +5,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.core.passwords import burn_password_check, hash_password, verify_password
 from app.infrastructure.db.session import get_session
-from app.infrastructure.db.models import IngestState, Pdf, User
+from app.infrastructure.db.models import AuthSession, IngestState, Pdf, User
 
 
 def _as_flag(value: bool | int) -> int:
@@ -29,6 +29,12 @@ def add_user(userid: str, password: str, is_admin: int = 0) -> bool:
 
 def delete_user(userid: str) -> bool:
     with get_session() as session:
+        session.execute(
+            delete(AuthSession).where(
+                AuthSession.username == userid,
+                AuthSession.role == "user",
+            )
+        )
         result = session.execute(delete(User).where(User.userid == userid))
         return result.rowcount > 0
 
@@ -51,6 +57,12 @@ def update_user_password(userid: str, new_password: str) -> bool:
         if user is None:
             return False
         user.password = hash_password(new_password)
+        session.execute(
+            delete(AuthSession).where(
+                AuthSession.username == userid,
+                AuthSession.role == "user",
+            )
+        )
         return True
 
 

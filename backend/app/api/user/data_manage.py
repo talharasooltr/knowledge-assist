@@ -1,8 +1,8 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
-from fastapi.security import HTTPBasicCredentials
 from typing import List
+from app.api.session_auth import SessionPrincipal
 from app.api.user.user_auth import verify_user_credentials
 from app.api.dependencies import get_pdf_deletion_service
 from app.application.pdf_deletion import (
@@ -23,7 +23,7 @@ router = APIRouter()
 @router.post("/user/pdf/upload")
 def upload_pdf(
     files: List[UploadFile] = File(...),
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     is_public: int = Form(0, ge=0, le=1)
 ):
     uploaded = []
@@ -68,7 +68,7 @@ def upload_pdf(
     return {"uploaded": uploaded, "uploaded_pdfs": uploaded_pdfs, "errors": errors}
 
 @router.get("/user/pdf")
-def list_pdfs(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
+def list_pdfs(credentials: SessionPrincipal = Depends(verify_user_credentials)):
     pdfs = db.get_pdfs_by_user(credentials.username)
     log_event(credentials.username, "list_pdfs", f"count={len(pdfs)}")
     return {"pdfs": pdfs}
@@ -76,7 +76,7 @@ def list_pdfs(credentials: HTTPBasicCredentials = Depends(verify_user_credential
 @router.delete("/user/pdf/{pdf_id}")
 def delete_pdf(
     pdf_id: int,
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     deletion_service: PdfDeletionService = Depends(get_pdf_deletion_service),
 ):
     try:

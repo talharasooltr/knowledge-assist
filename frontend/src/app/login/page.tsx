@@ -6,7 +6,7 @@ import { useAuth, type UserRole } from "@/features/auth/auth-context";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { ready, signedIn, signIn } = useAuth();
+  const { ready, signedIn, signIn, error: authError } = useAuth();
   const [role, setRole] = useState<UserRole>("user");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -59,7 +59,7 @@ export default function LoginPage() {
             <label htmlFor="password">Password</label>
             <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required />
           </div>
-          {error && <div className="error" role="alert">{error}</div>}
+          {(error || authError) && <div className="error" role="alert">{error || authError}</div>}
           <button className="primary full" disabled={busy}>{busy ? "Signing in..." : "Sign in"}</button>
         </form>
       </section>

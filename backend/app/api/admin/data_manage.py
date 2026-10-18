@@ -1,10 +1,10 @@
 from pathlib import Path
 from uuid import uuid4
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends, Form
-from fastapi.security import HTTPBasicCredentials
 from typing import List
 from app.api.admin.admin_auth import verify_admin_credentials
 from app.api.dependencies import get_pdf_deletion_service
+from app.api.session_auth import SessionPrincipal
 from app.application.pdf_deletion import (
     PdfDeletionPendingError,
     PdfDeletionService,
@@ -28,7 +28,7 @@ router = APIRouter()
 def upload_pdf(
     files: List[UploadFile] = File(...),
     is_public: int = Form(0, ge=0, le=1),
-    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)
+    credentials: SessionPrincipal = Depends(verify_admin_credentials)
 ):
     uploaded = []
     uploaded_pdfs = []
@@ -73,13 +73,13 @@ def upload_pdf(
 
 # get all pdfs uploaded by admin and users with some information like uploaded_by, is_public.
 @router.get("/admin/pdf")
-def list_pdfs(credentials: HTTPBasicCredentials = Depends(verify_admin_credentials)):
+def list_pdfs(credentials: SessionPrincipal = Depends(verify_admin_credentials)):
     pdfs = get_all_pdfs()
     log_event(credentials.username, "admin_list_pdfs", f"count={len(pdfs)}")
     return {"pdfs": pdfs}
 @router.delete("/admin/pdf/public")
 def delete_all_public_pdfs(
-    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
+    credentials: SessionPrincipal = Depends(verify_admin_credentials),
     deletion_service: PdfDeletionService = Depends(get_pdf_deletion_service),
 ):
     deleted = []
@@ -101,7 +101,7 @@ def delete_all_public_pdfs(
 @router.delete("/admin/pdf/{pdf_id}")
 def delete_pdf(
     pdf_id: int,
-    credentials: HTTPBasicCredentials = Depends(verify_admin_credentials),
+    credentials: SessionPrincipal = Depends(verify_admin_credentials),
     deletion_service: PdfDeletionService = Depends(get_pdf_deletion_service),
 ):
     try:

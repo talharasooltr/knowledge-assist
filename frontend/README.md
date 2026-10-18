@@ -37,8 +37,10 @@ npm run dev
 Set `NEXT_PUBLIC_BACKEND_URL` when the backend is not running at the default local address:
 
 ```env
-NEXT_PUBLIC_BACKEND_URL=http://127.0.0.1:8000
+NEXT_PUBLIC_BACKEND_URL=http://localhost:8000
 ```
+
+Use the same hostname (`localhost`) for the frontend and backend during local development so browser session cookies remain same-site. The frontend uses revocable server-side sessions in `HttpOnly` cookies and sends a CSRF token for state-changing requests.
 
 The frontend uses the backend API for authentication, chat, document uploads, document management, and administrator user management.
 

@@ -8,7 +8,7 @@ type Pdf = { id: number; filename: string; filepath?: string; uploaded_by?: stri
 type UploadedPdf = Pick<Pdf, "id" | "filename" | "uploaded_by" | "is_public">;
 
 export default function DocumentsPage() {
-  const { auth, role } = useAuth();
+  const { role } = useAuth();
   const [files, setFiles] = useState<Pdf[]>([]);
   const [status, setStatus] = useState("");
   const [error, setError] = useState("");
@@ -16,12 +16,12 @@ export default function DocumentsPage() {
 
   const loadFiles = useCallback(async () => {
     try {
-      const fileResult = await apiRequest<{ pdfs: Pdf[] }>(role === "admin" ? "/admin/pdf" : "/user/pdf", auth);
+      const fileResult = await apiRequest<{ pdfs: Pdf[] }>(role === "admin" ? "/admin/pdf" : "/user/pdf");
       setFiles(fileResult.pdfs || []);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Could not load documents.");
     }
-  }, [auth, role]);
+  }, [role]);
 
   useEffect(() => { void loadFiles(); }, [loadFiles]);
 
@@ -34,7 +34,7 @@ export default function DocumentsPage() {
     } else {
       path = `/user/vectordb/ingest/pdf/${file.id}`;
     }
-    await apiRequest(path, auth, { method: "POST" });
+    await apiRequest(path, { method: "POST" });
   }
 
   async function indexFile(file: Pdf) {
@@ -59,7 +59,7 @@ export default function DocumentsPage() {
     setBusy(true); setError(""); setStatus("");
     let uploaded: string[] = [];
     try {
-      const result = await apiRequest<{ uploaded: string[]; uploaded_pdfs: UploadedPdf[]; errors?: { filename: string; error: string }[] }>(role === "admin" ? "/admin/pdf/upload" : "/user/pdf/upload", auth, { method: "POST", body: form });
+      const result = await apiRequest<{ uploaded: string[]; uploaded_pdfs: UploadedPdf[]; errors?: { filename: string; error: string }[] }>(role === "admin" ? "/admin/pdf/upload" : "/user/pdf/upload", { method: "POST", body: form });
       uploaded = result.uploaded || [];
       for (const [index, file] of result.uploaded_pdfs.entries()) {
         setStatus(`Uploaded ${uploaded.length} document(s). Indexing ${index + 1} of ${result.uploaded_pdfs.length}...`);
@@ -85,7 +85,7 @@ export default function DocumentsPage() {
   async function deleteFile(file: Pdf) {
     setError(""); setStatus("");
     try {
-      await apiRequest(`${role === "admin" ? "/admin/pdf" : "/user/pdf"}/${file.id}`, auth, {
+      await apiRequest(`${role === "admin" ? "/admin/pdf" : "/user/pdf"}/${file.id}`, {
         method: "DELETE",
       });
       setStatus(`${file.filename} removed.`);

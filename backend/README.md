@@ -115,13 +115,14 @@ Run the backend commands below from the `backend/` directory.
 
 The interactive API reference is available at `http://localhost:8000/docs` when the server is running. Main endpoint groups are:
 
-- Authentication: `/user/auth/check`, `/user/login`, `/admin/auth/check`
+- Authentication: `POST /user/auth/login`, `POST /admin/auth/login`, `GET /auth/session`, `POST /auth/logout`
 - User PDFs: `GET /user/pdf`, `POST /user/pdf/upload`, `DELETE /user/pdf/{pdf_id}`
 - Admin PDFs: `GET /admin/pdf`, `POST /admin/pdf/upload`, `DELETE /admin/pdf/{pdf_id}`, `DELETE /admin/pdf/public`
 - PDF ingestion uses stable IDs: `/user/vectordb/ingest/pdf/{pdf_id}` and `/admin/vectordb/ingest/pdf/{pdf_id}/...`
 - Configure unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` values; startup authentication fails closed if either is missing.
 - `MAX_PDF_UPLOAD_BYTES` defaults to 20 MiB per PDF. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.
 - Set `CORS_ALLOWED_ORIGINS` to the exact frontend origins for the deployment; do not use wildcard origins with credentials.
+- Authentication uses revocable opaque server-side sessions in `HttpOnly` cookies and CSRF tokens for state-changing requests. Set `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
 - User ingestion and retrieval management: `/user/vectordb/...`
 - User chat and history: `/user/chat`, `/user/chat/history`
 - Admin users, PDFs, ingestion, and chat history: `/admin/...`
@@ -181,6 +182,8 @@ package; the API entrypoint is `app.main:app`.
 - `ADMIN_PASSWORD`: Admin password
 - `DATABASE_URL`: PostgreSQL connection URL
 - `EMBEDDING_DIMENSION`: Embedding vector dimension; must match the configured model
+- `SESSION_TTL_HOURS`: Server-side login session lifetime (default: 12 hours)
+- `SESSION_COOKIE_SECURE`: Set to `true` for HTTPS deployments; use `false` for local HTTP development
 
 ### Database
 - **PostgreSQL**: Users, PDFs, ingestion state, chat memory, and PDF chunks

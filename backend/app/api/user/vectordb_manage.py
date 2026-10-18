@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from fastapi.security import HTTPBasicCredentials
+from app.api.session_auth import SessionPrincipal
 from app.api.user.user_auth import verify_user_credentials
 from app.api.dependencies import get_pdf_ingestion_service
 from app.application.pdf_ingestion import PdfIngestionService
@@ -10,7 +10,7 @@ router = APIRouter()
 
 @router.post("/user/vectordb/ingest/all")
 def ingest_all(
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
 ):
     try:
@@ -24,7 +24,7 @@ def ingest_all(
 @router.post("/user/vectordb/ingest/pdf/{pdf_id}")
 def ingest_pdf_by_id(
     pdf_id: int,
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     ingestion_service: PdfIngestionService = Depends(get_pdf_ingestion_service),
 ):
     try:
@@ -38,7 +38,7 @@ def ingest_pdf_by_id(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/user/vectordb/pdf/all")
-def remove_all_pdf_data(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
+def remove_all_pdf_data(credentials: SessionPrincipal = Depends(verify_user_credentials)):
     try:
         pdf_vector_store.clear_pdf_by_user(credentials.username)
         log_event(credentials.username, "user_remove_all_pdf_data", "all user PDF data removed from vectordb")
@@ -48,7 +48,7 @@ def remove_all_pdf_data(credentials: HTTPBasicCredentials = Depends(verify_user_
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/user/vectordb/pdf")
-def get_available_pdf_data(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
+def get_available_pdf_data(credentials: SessionPrincipal = Depends(verify_user_credentials)):
     try:
         sources = pdf_vector_store.get_pdf_sources()
         filtered = [s for s in sources if s["ingested_by"] == credentials.username or s["ingested_by"] == "public"]
@@ -59,7 +59,7 @@ def get_available_pdf_data(credentials: HTTPBasicCredentials = Depends(verify_us
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/user/vectordb/memory")
-def clear_my_memory(credentials: HTTPBasicCredentials = Depends(verify_user_credentials)):
+def clear_my_memory(credentials: SessionPrincipal = Depends(verify_user_credentials)):
     try:
         chat_memory.clear_history_by_user(credentials.username)
         log_event(credentials.username, "user_clear_memory", "chat history cleared from vectordb")

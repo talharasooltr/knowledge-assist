@@ -1,9 +1,9 @@
 import asyncio
 
 from fastapi import APIRouter, Depends
-from fastapi.security import HTTPBasicCredentials
 
 from app.api.dependencies import get_chat_service
+from app.api.session_auth import SessionPrincipal
 from app.api.user.user_auth import verify_user_credentials
 from app.core.logging import log_event
 from app.application.chat_service import ChatService
@@ -14,7 +14,7 @@ router = APIRouter()
 @router.post("/user/chat", response_model=ChatResponse)
 async def chat(
     req: ChatRequest,
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     service: ChatService = Depends(get_chat_service),
 ):
     result = await asyncio.to_thread(service.answer, credentials.username, req.message)
@@ -23,7 +23,7 @@ async def chat(
 
 @router.get("/user/chat/history", response_model=ChatHistoryResponse)
 async def get_my_history(
-    credentials: HTTPBasicCredentials = Depends(verify_user_credentials),
+    credentials: SessionPrincipal = Depends(verify_user_credentials),
     service: ChatService = Depends(get_chat_service),
 ):
     history = await asyncio.to_thread(service.history, credentials.username)

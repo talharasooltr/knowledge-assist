@@ -30,3 +30,5 @@ CORS_ALLOWED_ORIGINS = tuple(
     ).split(",")
     if origin.strip()
 )
+SESSION_TTL_HOURS = int(os.getenv("SESSION_TTL_HOURS", "12"))
+SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", "false").strip().lower() == "true"

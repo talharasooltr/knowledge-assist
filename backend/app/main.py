@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import CORS_ALLOWED_ORIGINS
 
+from app.api import session_auth
 from app.api.admin import user_manage
 from app.api.admin import data_manage
 from app.api.admin import chat_manage
@@ -10,7 +11,6 @@ from app.api.admin import admin_auth
 from app.api.user import chat_manage as user_chat_manage
 from app.api.user import data_manage as user_data_manage
 from app.api.user import vectordb_manage as user_vectordb_manage
-from app.api.user import user_manage as user_user_manage
 from app.api.user import user_auth
 
 app = FastAPI()
@@ -21,6 +21,7 @@ app.add_middleware(
 	allow_methods=["*"],
 	allow_headers=["*"],
 )
+app.include_router(session_auth.router)
 
 # Admin endpoint
 app.include_router(user_manage.router)
@@ -33,5 +34,4 @@ app.include_router(admin_auth.router)
 app.include_router(user_chat_manage.router)
 app.include_router(user_data_manage.router)
 app.include_router(user_vectordb_manage.router)
-app.include_router(user_user_manage.router)
 app.include_router(user_auth.router)

@@ -1,19 +1,28 @@
-const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://127.0.0.1:8000").replace(/\/+$/, "");
+const backendUrl = (process.env.NEXT_PUBLIC_BACKEND_URL ?? "http://localhost:8000").replace(/\/+$/, "");
+const csrfCookieName = "knowledge_csrf";
 
-export function encodeBasicAuth(username: string, password: string): string {
-  return `Basic ${btoa(`${username}:${password}`)}`;
+function readCsrfToken(): string | undefined {
+  if (typeof document === "undefined") return undefined;
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${csrfCookieName}=`));
+  return cookie ? decodeURIComponent(cookie.slice(csrfCookieName.length + 1)) : undefined;
 }
 
 export async function apiRequest<T = unknown>(
   path: string,
-  auth?: string,
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  if (auth) headers.set("Authorization", auth);
+  const method = (options.method ?? "GET").toUpperCase();
+  if (["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+    const csrfToken = readCsrfToken();
+    if (csrfToken) headers.set("X-CSRF-Token", csrfToken);
+  }
 
   const response = await fetch(`${backendUrl}${path.startsWith("/") ? path : `/${path}`}`, {
     ...options,
+    credentials: "include",
     headers,
   });
 

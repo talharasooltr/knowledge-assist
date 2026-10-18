@@ -1,69 +1,74 @@
 "use client";
 
-import { createContext, type ReactNode, useContext, useState, useSyncExternalStore } from "react";
-import { apiRequest, encodeBasicAuth } from "@/lib/api";
+import { createContext, type ReactNode, useContext, useEffect, useState } from "react";
+import { apiRequest } from "@/lib/api";
 
 export type UserRole = "user" | "admin";
 
-type AuthState = { auth: string; role: UserRole; username: string };
+type AuthState = { role: UserRole; username: string };
+type SessionResponse = { authenticated: false } | ({ authenticated: true } & AuthState);
 type AuthContextValue = AuthState & {
   ready: boolean;
   signedIn: boolean;
+  error: string;
   signIn: (role: UserRole, username: string, password: string) => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
 };
 
-const SESSION_KEYS = ["knowledge-auth", "knowledge-role", "knowledge-user"];
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStoredSession(): AuthState | null {
-  if (typeof window === "undefined") return null;
-  const auth = window.sessionStorage.getItem(SESSION_KEYS[0]);
-  const role = window.sessionStorage.getItem(SESSION_KEYS[1]);
-  const username = window.sessionStorage.getItem(SESSION_KEYS[2]);
-  if (!auth || (role !== "user" && role !== "admin") || !username) return null;
-  return { auth, role, username };
-}
-
-function subscribeToNothing(): () => void {
-  return () => {};
-}
-
-function getClientReady(): boolean {
-  return true;
-}
-
-function getServerReady(): boolean {
-  return false;
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthState | null>(readStoredSession);
-  const ready = useSyncExternalStore(subscribeToNothing, getClientReady, getServerReady);
+  const [session, setSession] = useState<AuthState | null>(null);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    window.sessionStorage.removeItem("knowledge-auth");
+    window.sessionStorage.removeItem("knowledge-role");
+    window.sessionStorage.removeItem("knowledge-user");
+    void apiRequest<SessionResponse>("/auth/session")
+      .then((result) => {
+        if (active) {
+          setSession(result.authenticated ? { role: result.role, username: result.username } : null);
+        }
+      })
+      .catch((caught) => {
+        if (active) setError(caught instanceof Error ? caught.message : "Unable to restore your session.");
+      })
+      .finally(() => {
+        if (active) setReady(true);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, []);
 
   async function signIn(role: UserRole, username: string, password: string) {
     const normalizedUsername = username.trim();
-    const auth = encodeBasicAuth(normalizedUsername, password);
-    await apiRequest(`/${role}/auth/check`, auth);
-    const nextSession = { auth, role, username: normalizedUsername };
-    window.sessionStorage.setItem(SESSION_KEYS[0], auth);
-    window.sessionStorage.setItem(SESSION_KEYS[1], role);
-    window.sessionStorage.setItem(SESSION_KEYS[2], normalizedUsername);
-    setSession(nextSession);
+    await apiRequest(`/${role}/auth/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ username: normalizedUsername, password }),
+    });
+    setSession({ role, username: normalizedUsername });
+    setError("");
   }
 
-  function signOut() {
-    SESSION_KEYS.forEach((key) => window.sessionStorage.removeItem(key));
+  async function signOut() {
+    await apiRequest("/auth/logout", { method: "POST" });
     setSession(null);
+    setError("");
   }
 
   return (
     <AuthContext.Provider value={{
-      auth: session?.auth ?? "",
       role: session?.role ?? "user",
       username: session?.username ?? "",
       ready,
       signedIn: Boolean(session),
+      error,
       signIn,
       signOut,
     }}>
