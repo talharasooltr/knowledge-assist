@@ -3,6 +3,7 @@
 import { useEffect, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { WorkspaceShell } from "@/components/workspace-shell";
+import { ConversationProvider } from "@/features/chat/conversation-context";
 import { useAuth } from "@/features/auth/auth-context";
 
 export default function WorkspaceLayout({ children }: { children: ReactNode }) {
@@ -14,5 +15,9 @@ export default function WorkspaceLayout({ children }: { children: ReactNode }) {
   }, [ready, router, signedIn]);
 
   if (!ready || !signedIn) return null;
-  return <WorkspaceShell>{children}</WorkspaceShell>;
+  return (
+    <ConversationProvider>
+      <WorkspaceShell>{children}</WorkspaceShell>
+    </ConversationProvider>
+  );
 }

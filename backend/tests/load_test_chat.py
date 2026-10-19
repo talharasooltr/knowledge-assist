@@ -36,8 +36,6 @@ def parse_args():
     return parser.parse_args()
 
 async def send_chat(index, user_id, user_index, delay, log_to_prompt, log_to_file, lock, success_count):
-    chat_api = f"{BASE_URL}/chat"
-    history_api = f"{BASE_URL}/chat/history"
     username, password = test_users[user_index % len(test_users)]
     await asyncio.sleep(delay)
     message = f"{random.choice(question_list)} {index}"
@@ -49,8 +47,14 @@ async def send_chat(index, user_id, user_index, delay, log_to_prompt, log_to_fil
             )
             assert login_response.status_code == 200
             csrf_token = ac.cookies.get("knowledge_csrf")
+            conversation_response = await ac.post(
+                f"{BASE_URL}/chat/conversations",
+                headers={"X-CSRF-Token": csrf_token or ""},
+            )
+            assert conversation_response.status_code == 201
+            conversation_id = conversation_response.json()["id"]
             response = await ac.post(
-                chat_api,
+                f"{BASE_URL}/chat/conversations/{conversation_id}/messages",
                 json={"message": message},
                 headers={"X-CSRF-Token": csrf_token or ""},
             )
@@ -61,7 +65,9 @@ async def send_chat(index, user_id, user_index, delay, log_to_prompt, log_to_fil
                 success_count["count"] += 1
             await asyncio.sleep(1)
             now = datetime.now()
-            history_response = await ac.get(history_api)
+            history_response = await ac.get(
+                f"{BASE_URL}/chat/conversations/{conversation_id}/messages"
+            )
             history = history_response.json().get("history", [])
             log_line = (
                 f"{'*' * 30}\n"

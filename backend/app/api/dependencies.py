@@ -13,7 +13,11 @@ from app.infrastructure.db.repository import (
 from app.infrastructure.providers.llm import LLM
 from app.infrastructure.parsers.pdf import parse_pdf
 from app.infrastructure.retrieval.chat_memory import (
-    get_all_history,
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    get_conversation_history,
+    list_conversations,
     retrieve_user_memory,
     save_chat_message,
 )
@@ -25,7 +29,11 @@ def get_chat_service() -> ChatService:
         retrieve_memory=retrieve_user_memory,
         retrieve_documents=retrieve_pdf_for_user,
         save_message=save_chat_message,
-        get_history=get_all_history,
+        get_history=get_conversation_history,
+        list_conversations=list_conversations,
+        create_conversation=create_conversation,
+        get_conversation=get_conversation,
+        delete_conversation=delete_conversation,
         generate_response=LLM.predict,
     )
 

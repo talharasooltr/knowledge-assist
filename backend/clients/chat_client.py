@@ -22,9 +22,9 @@ def authenticate():
         except Exception as e:
             print(f"❌ Error connecting to server: {e}\n")
 
-def print_history(client):
+def print_history(client, conversation_id):
     try:
-        res = client.get("/chat/history")
+        res = client.get(f"/chat/conversations/{conversation_id}/messages")
         print("*" * 10)
         if res.status_code == 200:
             history = res.json().get("history", [])
@@ -40,6 +40,12 @@ def print_history(client):
 def chat():
     # Authenticate user first
     user_id, client = authenticate()
+    try:
+        conversation = client.post("/chat/conversations").json()
+        conversation_id = conversation["id"]
+    except (KeyError, ValueError) as e:
+        print(f"Unable to start a conversation: {e}")
+        return
     
     print("Chat started! Type 'exit' or 'quit' to end the session.")
     print("-" * 50)
@@ -50,11 +56,14 @@ def chat():
             print("Goodbye!")
             break
         try:
-            res = client.post("/chat", json={"message": msg})
+            res = client.post(
+                f"/chat/conversations/{conversation_id}/messages",
+                json={"message": msg},
+            )
             
             if res.status_code == 200:
                 response_data = res.json()
-                print_history(client)
+                print_history(client, conversation_id)
                 print("Prompt: ", response_data.get("prompt", ""))
                 print("*" * 10)
                 print("🤖 Predict:", response_data.get("response", ""))

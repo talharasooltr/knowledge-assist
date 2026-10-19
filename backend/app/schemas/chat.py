@@ -1,10 +1,12 @@
+from datetime import datetime
 from typing import Literal
+from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class ChatRequest(BaseModel):
-    message: str
+    message: str = Field(min_length=1, max_length=20_000)
 
 
 class ChatResponse(BaseModel):
@@ -27,4 +29,20 @@ class ChatHistoryMessage(BaseModel):
 
 class ChatHistoryResponse(BaseModel):
     user_id: str
+    history: list[ChatHistoryMessage]
+
+
+class ChatConversationSummary(BaseModel):
+    id: UUID
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatConversationListResponse(BaseModel):
+    conversations: list[ChatConversationSummary]
+
+
+class ChatConversationHistoryResponse(BaseModel):
+    conversation_id: UUID
     history: list[ChatHistoryMessage]

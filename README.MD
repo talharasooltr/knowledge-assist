@@ -39,6 +39,7 @@ When asked about a pet policy that is not covered in the guide, the assistant sa
 - **Manage PDF knowledge**: Upload, ingest, list, and remove PDFs.
 - **Search by meaning**: Store document chunks and embeddings in PostgreSQL with pgvector.
 - **Ask grounded questions**: Retrieve relevant PDF content and use it as context for chat responses.
+- **Keep conversations separate**: Create multiple chats with independent histories and retrieval context.
 - **Separate private and shared content**: Apply user/public metadata to document retrieval.
 - **Manage users and chat history**: Provide separate user and administrator API operations.
 

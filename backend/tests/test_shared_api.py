@@ -1,26 +1,71 @@
 import unittest
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
+from uuid import UUID
 
 from fastapi.testclient import TestClient
 
 from app.api.dependencies import get_chat_service, get_pdf_deletion_service, get_pdf_ingestion_service
 from app.api.session_auth import SessionPrincipal, require_session
+from app.application.chat_service import ConversationNotFoundError
 from app.main import app
+
+CONVERSATION_ID = UUID("417ccbf1-6125-4de7-a77e-f4354b097e36")
 
 
 class StubChatService:
     def __init__(self):
-        self.answered_users: list[str] = []
-        self.history_users: list[str] = []
+        self.answered_conversations: list[tuple[str, str]] = []
+        self.history_conversations: list[tuple[str, str]] = []
+        self.created_conversations: list[tuple[str, dict]] = []
 
-    def answer(self, user_id: str, message: str):
-        self.answered_users.append(user_id)
+    def answer(self, user_id: str, conversation_id: str, message: str):
+        if (user_id, conversation_id) not in {
+            (owner, conversation["id"])
+            for owner, conversation in self.created_conversations
+        }:
+            raise ConversationNotFoundError(conversation_id)
+        self.answered_conversations.append((user_id, conversation_id))
         return SimpleNamespace(response=f"Answer to {message}", prompt="", citations=[])
 
-    def history(self, user_id: str):
-        self.history_users.append(user_id)
+    def history(self, user_id: str, conversation_id: str):
+        if (user_id, conversation_id) not in {
+            (owner, conversation["id"])
+            for owner, conversation in self.created_conversations
+        }:
+            raise ConversationNotFoundError(conversation_id)
+        self.history_conversations.append((user_id, conversation_id))
         return []
+
+    def create(self, user_id: str):
+        conversation = {
+            "id": str(CONVERSATION_ID),
+            "title": "New chat",
+            "created_at": datetime.now(timezone.utc),
+            "updated_at": datetime.now(timezone.utc),
+        }
+        self.created_conversations.append((user_id, conversation))
+        return conversation
+
+    def delete(self, user_id: str, conversation_id: str):
+        if (user_id, conversation_id) not in {
+            (owner, conversation["id"])
+            for owner, conversation in self.created_conversations
+        }:
+            raise ConversationNotFoundError(conversation_id)
+        self.created_conversations = [
+            (owner, conversation)
+            for owner, conversation in self.created_conversations
+            if owner != user_id or conversation["id"] != conversation_id
+        ]
+
+    def conversations(self, user_id: str):
+        return [
+            conversation
+            for owner, conversation in self.created_conversations
+            if owner == user_id
+        ]
 
 
 class StubPdfIngestionService:
@@ -66,18 +111,51 @@ class SharedApiTests(unittest.TestCase):
             role=role,
         )
 
-    def test_same_chat_routes_scope_to_the_authenticated_account(self):
+    def test_conversations_and_messages_are_scoped_to_the_authenticated_account(self):
         for username, role in (("member", "user"), ("administrator", "admin")):
             with self.subTest(role=role):
                 self.authenticate_as(username, role)
-                history_response = self.client.get("/chat/history")
-                chat_response = self.client.post("/chat", json={"message": "hello"})
+                create_response = self.client.post("/chat/conversations")
+                conversation_id = create_response.json()["id"]
+                history_response = self.client.get(
+                    f"/chat/conversations/{conversation_id}/messages"
+                )
+                chat_response = self.client.post(
+                    f"/chat/conversations/{conversation_id}/messages",
+                    json={"message": "hello"},
+                )
 
+                self.assertEqual(create_response.status_code, 201)
                 self.assertEqual(history_response.status_code, 200)
-                self.assertEqual(history_response.json()["user_id"], username)
+                self.assertEqual(history_response.json()["conversation_id"], conversation_id)
                 self.assertEqual(chat_response.status_code, 200)
-                self.assertIn(username, self.chat_service.history_users)
-                self.assertIn(username, self.chat_service.answered_users)
+                self.assertIn((username, conversation_id), self.chat_service.history_conversations)
+                self.assertIn((username, conversation_id), self.chat_service.answered_conversations)
+
+    def test_conversation_list_and_deletion_are_owner_scoped(self):
+        self.authenticate_as("member", "user")
+        created = self.client.post("/chat/conversations")
+        conversation_id = created.json()["id"]
+        listed = self.client.get("/chat/conversations")
+        self.assertEqual([item["id"] for item in listed.json()["conversations"]], [conversation_id])
+
+        self.authenticate_as("other-member", "user")
+        self.assertEqual(self.client.get("/chat/conversations").json()["conversations"], [])
+        self.assertEqual(
+            self.client.get(f"/chat/conversations/{conversation_id}/messages").status_code,
+            404,
+        )
+        self.assertEqual(
+            self.client.delete(f"/chat/conversations/{conversation_id}").status_code,
+            404,
+        )
+
+        self.authenticate_as("member", "user")
+        self.assertEqual(
+            self.client.delete(f"/chat/conversations/{conversation_id}").status_code,
+            204,
+        )
+        self.assertEqual(self.client.get("/chat/conversations").json()["conversations"], [])
 
     def test_pdf_listing_is_scoped_by_role_on_the_shared_route(self):
         with (
@@ -168,6 +246,8 @@ class SharedApiTests(unittest.TestCase):
             "/user/chat",
             "/admin/chat",
             "/user/chat/history",
+            "/chat",
+            "/chat/history",
             "/user/pdf",
             "/admin/pdf",
             "/user/vectordb/ingest/all",

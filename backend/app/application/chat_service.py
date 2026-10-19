@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 from langchain_core.documents import Document
 
-from app.application.chat_types import ChatHistoryEntry, ChatRole, CitationData
+from app.application.chat_types import ChatConversation, ChatHistoryEntry, ChatRole, CitationData
 
 
 @dataclass(frozen=True)
@@ -13,23 +13,48 @@ class ChatResult:
     citations: list[CitationData]
 
 
+class ConversationNotFoundError(LookupError):
+    pass
+
+
 class ChatService:
     def __init__(
         self,
-        retrieve_memory: Callable[[str, str, int], list[Document]],
+        retrieve_memory: Callable[[str, str, str, int], list[Document]],
         retrieve_documents: Callable[[str, str, int], list[Document]],
-        save_message: Callable[[str, ChatRole, str, list[CitationData]], None],
-        get_history: Callable[[str], list[ChatHistoryEntry]],
+        save_message: Callable[[str, str, ChatRole, str, list[CitationData]], None],
+        get_history: Callable[[str, str], list[ChatHistoryEntry]],
+        list_conversations: Callable[[str], list[ChatConversation]],
+        create_conversation: Callable[[str], ChatConversation],
+        get_conversation: Callable[[str, str], ChatConversation | None],
+        delete_conversation: Callable[[str, str], bool],
         generate_response: Callable[[str], str],
     ) -> None:
         self._retrieve_memory = retrieve_memory
         self._retrieve_documents = retrieve_documents
         self._save_message = save_message
         self._get_history = get_history
+        self._list_conversations = list_conversations
+        self._create_conversation = create_conversation
+        self._get_conversation = get_conversation
+        self._delete_conversation = delete_conversation
         self._generate_response = generate_response
 
-    def answer(self, user_id: str, message: str) -> ChatResult:
-        memories = self._retrieve_memory(user_id, message, 3)
+    def conversations(self, user_id: str) -> list[ChatConversation]:
+        return self._list_conversations(user_id)
+
+    def create(self, user_id: str) -> ChatConversation:
+        return self._create_conversation(user_id)
+
+    def delete(self, user_id: str, conversation_id: str) -> None:
+        if not self._delete_conversation(user_id, conversation_id):
+            raise ConversationNotFoundError(conversation_id)
+
+    def answer(self, user_id: str, conversation_id: str, message: str) -> ChatResult:
+        if self._get_conversation(user_id, conversation_id) is None:
+            raise ConversationNotFoundError(conversation_id)
+
+        memories = self._retrieve_memory(user_id, conversation_id, message, 3)
         documents = self._retrieve_documents(user_id, message, 3)
 
         memory_text = "\n".join(document.page_content for document in memories)
@@ -80,9 +105,11 @@ class ChatService:
     """
 
         response = self._generate_response(prompt)
-        self._save_message(user_id, "user", message, [])
-        self._save_message(user_id, "assistant", response, citations)
+        self._save_message(user_id, conversation_id, "user", message, [])
+        self._save_message(user_id, conversation_id, "assistant", response, citations)
         return ChatResult(response=response, prompt=prompt, citations=citations)
 
-    def history(self, user_id: str) -> list[ChatHistoryEntry]:
-        return self._get_history(user_id)
+    def history(self, user_id: str, conversation_id: str) -> list[ChatHistoryEntry]:
+        if self._get_conversation(user_id, conversation_id) is None:
+            raise ConversationNotFoundError(conversation_id)
+        return self._get_history(user_id, conversation_id)

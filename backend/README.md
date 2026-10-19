@@ -8,6 +8,7 @@ A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, P
 - **PDF Management**: Upload, ingest, list, and delete PDFs
 - **Vector Search**: PostgreSQL with pgvector and metadata-based access control
 - **Chat API**: Authenticated chat endpoints used by the Next.js frontend
+- **Multiple conversations**: Separate, persistent chat histories and context for each conversation
 
 ## Quick Start
 
@@ -117,10 +118,11 @@ The interactive API reference is available at `http://localhost:8000/docs` when 
 
 - Authentication: `POST /auth/login`, `GET /auth/session`, `POST /auth/logout`
 - The login endpoint resolves admin or member identity on the server; clients do not submit a role.
-- Shared chat: `POST /chat`, `GET /chat/history`, `DELETE /chat/history`. Each operation is scoped to the authenticated account.
+- Shared chat: `GET /chat/conversations`, `POST /chat/conversations`, `GET /chat/conversations/{conversation_id}/messages`, `POST /chat/conversations/{conversation_id}/messages`, and `DELETE /chat/conversations/{conversation_id}`. Each conversation and message history is scoped to its authenticated owner.
 - Shared PDFs: `GET /pdf`, `POST /pdf/upload`, `DELETE /pdf/{pdf_id}`. Members see and delete only their own PDFs; admins can manage all PDFs.
 - Shared vector operations: `GET /vectordb/pdf`, `DELETE /vectordb/pdf`, `POST /vectordb/ingest/all`, `POST /vectordb/ingest/pdf/{pdf_id}`. Visibility and ingestion scope are determined by the authenticated role.
 - Admin-only operations include `GET /admin/chat/history/{user_id}`, `DELETE /admin/pdf/public`, targeted vector cleanup, and user administration.
+- Existing chat history is migrated into one conversation per account; new conversations keep their own title, messages, and retrieval context.
 - Admins can explicitly override PDF indexing visibility through `/admin/vectordb/ingest/pdf/{pdf_id}/public` and `/admin/vectordb/ingest/pdf/{pdf_id}/private`.
 - Configure unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` values; startup authentication fails closed if either is missing.
 - `MAX_PDF_UPLOAD_BYTES` defaults to 20 MiB per PDF. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.

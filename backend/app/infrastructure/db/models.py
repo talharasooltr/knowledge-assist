@@ -103,12 +103,42 @@ class PdfChunk(Base):
 
 class ChatMemory(Base):
     __tablename__ = "chat_memory"
+    __table_args__ = (
+        Index(
+            "ix_chat_memory_user_conversation_timestamp",
+            "user_id",
+            "conversation_id",
+            "timestamp",
+        ),
+        Index("ix_chat_memory_conversation_id", "conversation_id"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("chat_conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
     timestamp: Mapped[float] = mapped_column(nullable=False, index=True)
     metadata_: Mapped[dict[str, JSONValue]] = mapped_column(
         "metadata", JSONB, default=dict, nullable=False
+    )
+
+
+class ChatConversation(Base):
+    __tablename__ = "chat_conversations"
+    __table_args__ = (
+        Index("ix_chat_conversations_user_updated", "user_id", "updated_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    title: Mapped[str] = mapped_column(String(120), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )

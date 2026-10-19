@@ -2,8 +2,8 @@
 
 import { type FormEvent, useEffect, useState } from "react";
 import { apiRequest } from "@/lib/api";
-import { useAuth } from "@/features/auth/auth-context";
 import { PageHeader } from "@/components/page-header";
+import { useConversations } from "@/features/chat/conversation-context";
 
 type Citation = { number: number; filename: string; page: number | null };
 type Message = { role: "user" | "assistant"; content: string; citations?: Citation[] };
@@ -21,31 +21,47 @@ function renderAnswer(content: string, citations: Citation[], messageIndex: numb
 }
 
 export default function ChatPage() {
-  const { ready, signedIn } = useAuth();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const {
+    activeConversationId,
+    createConversation,
+    refreshConversations,
+    setActiveConversationId,
+  } = useConversations();
+  const [historyState, setHistoryState] = useState<{
+    conversationId: string;
+    messages: Message[];
+  } | null>(null);
   const [question, setQuestion] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [loadingHistory, setLoadingHistory] = useState(true);
 
   useEffect(() => {
     let active = true;
-    if (!ready) return () => { active = false; };
-    if (!signedIn) return () => { active = false; };
+    if (!activeConversationId) return () => { active = false; };
 
-    void apiRequest<{ history: Message[] }>("/chat/history")
+    void apiRequest<{ history: Message[] }>(
+      `/chat/conversations/${encodeURIComponent(activeConversationId)}/messages`,
+    )
       .then((result) => {
-        if (active) setMessages(result.history ?? []);
+        if (active) {
+          setHistoryState({
+            conversationId: activeConversationId,
+            messages: result.history ?? [],
+          });
+          setError("");
+        }
       })
       .catch((caught) => {
         if (active) setError(caught instanceof Error ? caught.message : "Unable to load chat history.");
-      })
-      .finally(() => {
-        if (active) setLoadingHistory(false);
       });
 
     return () => { active = false; };
-  }, [ready, signedIn]);
+  }, [activeConversationId]);
+
+  const historyIsCurrent = activeConversationId !== null
+    && historyState?.conversationId === activeConversationId;
+  const messages = historyIsCurrent ? historyState.messages : [];
+  const loadingHistory = activeConversationId !== null && !historyIsCurrent;
 
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -54,20 +70,53 @@ export default function ChatPage() {
 
     setQuestion("");
     setError("");
-    setMessages((current) => [...current, { role: "user", content: message }]);
     setBusy(true);
+    let conversationId = activeConversationId;
+    const isNewConversation = conversationId === null;
     try {
-      const result = await apiRequest<{ response: string; citations: Citation[] }>("/chat", {
+      if (!conversationId) {
+        const conversation = await createConversation(false);
+        conversationId = conversation.id;
+        setHistoryState({ conversationId, messages: [] });
+      }
+
+      const targetConversationId = conversationId;
+      setHistoryState((current) => ({
+        conversationId: targetConversationId,
+        messages: current?.conversationId === targetConversationId
+          ? [...current.messages, { role: "user", content: message }]
+          : [{ role: "user", content: message }],
+      }));
+      const result = await apiRequest<{ response: string; citations: Citation[] }>(
+        `/chat/conversations/${encodeURIComponent(targetConversationId)}/messages`,
+        {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ message }),
-      });
-      setMessages((current) => [...current, {
-        role: "assistant",
-        content: result.response || "No answer was returned.",
-        citations: result.citations ?? [],
-      }]);
+        },
+      );
+      setHistoryState((current) => current?.conversationId === targetConversationId
+        ? {
+          ...current,
+          messages: [...current.messages, {
+            role: "assistant",
+            content: result.response || "No answer was returned.",
+            citations: result.citations ?? [],
+          }],
+        }
+        : current);
+      if (isNewConversation) {
+        setActiveConversationId((current) => current ?? targetConversationId);
+      }
+      try {
+        await refreshConversations();
+      } catch (caught) {
+        setError(caught instanceof Error ? caught.message : "Unable to refresh the chat list.");
+      }
     } catch (caught) {
+      if (conversationId && conversationId !== activeConversationId) {
+        setActiveConversationId(conversationId);
+      }
       setError(caught instanceof Error ? caught.message : "Unable to reach the assistant.");
     } finally {
       setBusy(false);
@@ -107,7 +156,7 @@ export default function ChatPage() {
           ))}
         </div>
         <form className="chat-form" onSubmit={sendMessage}>
-          <textarea aria-label="Your question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask anything about your documents..." rows={1} disabled={loadingHistory} />
+          <textarea aria-label="Your question" value={question} onChange={(event) => setQuestion(event.target.value)} placeholder="Ask anything about your documents..." rows={1} disabled={loadingHistory || busy} />
           <button className="primary" disabled={busy || loadingHistory || !question.trim()}>{busy ? "Thinking..." : "Ask"}</button>
         </form>
       </section>
