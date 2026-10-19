@@ -24,7 +24,9 @@ export type ChatConversation = {
 type ConversationContextValue = {
   conversations: ChatConversation[];
   activeConversationId: string | null;
+  draftVersion: number;
   setActiveConversationId: Dispatch<SetStateAction<string | null>>;
+  startNewChat: () => void;
   createConversation: (activate?: boolean) => Promise<ChatConversation>;
   deleteConversation: (id: string) => Promise<void>;
   refreshConversations: () => Promise<ChatConversation[]>;
@@ -38,6 +40,7 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   const { ready, signedIn } = useAuth();
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [draftVersion, setDraftVersion] = useState(0);
   const [error, setError] = useState("");
 
   const refreshConversations = useCallback(async () => {
@@ -47,6 +50,12 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const clearError = useCallback(() => setError(""), []);
+
+  const startNewChat = useCallback(() => {
+    setActiveConversationId(null);
+    setDraftVersion((current) => current + 1);
+    setError("");
+  }, []);
 
   const createConversation = useCallback(async (activate = true) => {
     const conversation = await apiRequest<ChatConversation>("/chat/conversations", {
@@ -82,7 +91,6 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
               ...loaded,
             ];
           });
-          setActiveConversationId((current) => current ?? loaded[0]?.id ?? null);
           setError("");
         }
       })
@@ -97,7 +105,9 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ConversationContextValue>(() => ({
     conversations,
     activeConversationId,
+    draftVersion,
     setActiveConversationId,
+    startNewChat,
     createConversation,
     deleteConversation,
     refreshConversations,
@@ -109,8 +119,10 @@ export function ConversationProvider({ children }: { children: ReactNode }) {
     conversations,
     createConversation,
     deleteConversation,
+    draftVersion,
     error,
     refreshConversations,
+    startNewChat,
   ]);
 
   return <ConversationContext.Provider value={value}>{children}</ConversationContext.Provider>;
