@@ -79,10 +79,25 @@ def _history_citations(value: JSONValue) -> list[CitationData]:
         number = item.get("number")
         filename = item.get("filename")
         page_value = item.get("page")
+        page_end_value = item.get("page_end")
+        section_value = item.get("section")
         if isinstance(number, bool) or not isinstance(number, int) or not isinstance(filename, str):
             continue
         page = page_value if isinstance(page_value, int) and not isinstance(page_value, bool) else None
-        citations.append({"number": number, "filename": filename, "page": page})
+        page_end = (
+            page_end_value
+            if isinstance(page_end_value, int) and not isinstance(page_end_value, bool)
+            else None
+        )
+        section = section_value if isinstance(section_value, str) else None
+        citation: CitationData = {
+            "number": number,
+            "filename": filename,
+            "page": page,
+            "page_end": page_end,
+            "section": section,
+        }
+        citations.append(citation)
     return citations
 
 

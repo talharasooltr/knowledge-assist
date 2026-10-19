@@ -19,6 +19,8 @@ class ChatCitation(BaseModel):
     number: int
     filename: str
     page: int | None = None
+    page_end: int | None = None
+    section: str | None = None
 
 
 class ChatHistoryMessage(BaseModel):

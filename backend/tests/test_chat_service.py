@@ -8,7 +8,7 @@ from app.application.chat_service import ChatService, ConversationNotFoundError
 CONVERSATION_ID = "417ccbf1-6125-4de7-a77e-f4354b097e36"
 
 
-def make_service(calls):
+def make_service(calls, documents=None):
     conversation = {
         "id": CONVERSATION_ID,
         "title": "Question",
@@ -20,7 +20,7 @@ def make_service(calls):
             calls.append(("retrieve_memory", user, conversation_id, query, limit))
             or [Document(page_content="Memory context")]
         ),
-        retrieve_documents=lambda user, query, limit: [
+        retrieve_documents=lambda user, query, limit: documents or [
             Document(
                 page_content="Document context",
                 metadata={"filename": "guide.pdf", "page": 1},
@@ -57,7 +57,13 @@ class ChatServiceTests(unittest.TestCase):
         self.assertIn("Document context", result.prompt)
         self.assertIn("[1] guide.pdf, page 2", result.prompt)
         self.assertEqual(result.response, "Answer")
-        self.assertEqual(result.citations, [{"number": 1, "filename": "guide.pdf", "page": 2}])
+        self.assertEqual(result.citations, [{
+            "number": 1,
+            "filename": "guide.pdf",
+            "page": 2,
+            "page_end": None,
+            "section": None,
+        }])
         self.assertIn(("generate", result.prompt), calls)
         self.assertIn(
             ("retrieve_memory", "casey", CONVERSATION_ID, "Question", 3),
@@ -96,6 +102,36 @@ class ChatServiceTests(unittest.TestCase):
         self.assertIn("No previous conversation found.", result.prompt)
         self.assertIn("No relevant documents found.", result.prompt)
         self.assertEqual(result.citations, [])
+
+    def test_answer_cites_page_ranges_and_sections(self):
+        service = make_service(
+            [],
+            [
+                Document(
+                    page_content="Section context",
+                    metadata={
+                        "filename": "guide.docx",
+                        "section": "Safety / Access",
+                    },
+                ),
+                Document(
+                    page_content="Pages context",
+                    metadata={
+                        "filename": "slides.pptx",
+                        "page_start": 1,
+                        "page_end": 2,
+                    },
+                ),
+            ],
+        )
+
+        result = service.answer("casey", CONVERSATION_ID, "Question")
+
+        self.assertIn("[1] guide.docx, section Safety / Access", result.prompt)
+        self.assertIn("[2] slides.pptx, pages 2-3", result.prompt)
+        self.assertEqual(result.citations[0]["section"], "Safety / Access")
+        self.assertEqual(result.citations[1]["page"], 2)
+        self.assertEqual(result.citations[1]["page_end"], 3)
 
     def test_conversation_access_is_owner_scoped(self):
         service = make_service([])

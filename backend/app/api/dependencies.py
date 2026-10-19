@@ -1,6 +1,6 @@
 from app.application.chat_service import ChatService
 from app.application.pdf_deletion import PdfDeletionService
-from app.application.pdf_ingestion import PdfIngestionService
+from app.application.document_ingestion import DocumentIngestionService
 from app.core.config import UPLOADS_DIR
 from app.infrastructure.db.repository import (
     delete_pdf_by_id,
@@ -11,7 +11,7 @@ from app.infrastructure.db.repository import (
     request_pdf_deletion,
 )
 from app.infrastructure.providers.llm import LLM
-from app.infrastructure.parsers.pdf import parse_pdf
+from app.infrastructure.parsers.documents import parse_document
 from app.infrastructure.retrieval.chat_memory import (
     create_conversation,
     delete_conversation,
@@ -38,12 +38,12 @@ def get_chat_service() -> ChatService:
     )
 
 
-def get_pdf_ingestion_service() -> PdfIngestionService:
-    return PdfIngestionService(
+def get_document_ingestion_service() -> DocumentIngestionService:
+    return DocumentIngestionService(
         upload_directory=UPLOADS_DIR,
-        get_all_pdfs=get_all_pdfs,
-        get_pdfs_by_user=get_pdfs_by_user,
-        parse_pdf=parse_pdf,
+        get_all_documents=get_all_pdfs,
+        get_documents_by_user=get_pdfs_by_user,
+        parse_document=parse_document,
         save_chunks=insert_new_chunks,
         record_ingestion=ingest,
     )

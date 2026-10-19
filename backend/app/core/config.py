@@ -23,7 +23,13 @@ DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "").strip()
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
 EMBEDDING_DIMENSION = int(os.getenv("EMBEDDING_DIMENSION", "1536"))
-MAX_PDF_UPLOAD_BYTES = int(os.getenv("MAX_PDF_UPLOAD_BYTES", str(20 * 1024 * 1024)))
+MAX_DOCUMENT_UPLOAD_BYTES = int(
+    os.getenv(
+        "MAX_DOCUMENT_UPLOAD_BYTES",
+        os.getenv("MAX_PDF_UPLOAD_BYTES", str(20 * 1024 * 1024)),
+    )
+)
+MAX_PDF_UPLOAD_BYTES = MAX_DOCUMENT_UPLOAD_BYTES
 CORS_ALLOWED_ORIGINS = tuple(
     origin.strip().rstrip("/")
     for origin in os.getenv(

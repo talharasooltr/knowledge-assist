@@ -1,12 +1,18 @@
 import unittest
+import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_chat_service, get_pdf_deletion_service, get_pdf_ingestion_service
+from app.api.dependencies import (
+    get_chat_service,
+    get_document_ingestion_service,
+    get_pdf_deletion_service,
+)
 from app.api.session_auth import SessionPrincipal, require_session
 from app.application.chat_service import ConversationNotFoundError
 from app.main import app
@@ -68,20 +74,20 @@ class StubChatService:
         ]
 
 
-class StubPdfIngestionService:
+class StubDocumentIngestionService:
     def __init__(self):
         self.calls: list[tuple[str, tuple]] = []
 
-    def ingest_all_public_pdfs(self):
+    def ingest_all_public_documents(self):
         self.calls.append(("public_all", ()))
 
-    def ingest_user_pdfs(self, user_id: str):
+    def ingest_user_documents(self, user_id: str):
         self.calls.append(("user_all", (user_id,)))
 
-    def ingest_pdf_by_id(self, pdf_id: int):
+    def ingest_document_by_id(self, pdf_id: int):
         self.calls.append(("admin_one", (pdf_id,)))
 
-    def ingest_user_pdf_by_id(self, pdf_id: int, user_id: str):
+    def ingest_user_document_by_id(self, pdf_id: int, user_id: str):
         self.calls.append(("user_one", (pdf_id, user_id)))
 
 
@@ -167,13 +173,19 @@ class SharedApiTests(unittest.TestCase):
         ):
             self.authenticate_as("member", "user")
             member_response = self.client.get("/pdf")
+            member_documents = self.client.get("/documents")
             self.authenticate_as("administrator", "admin")
             admin_response = self.client.get("/pdf")
+            admin_documents = self.client.get("/documents")
 
         self.assertEqual(member_response.json(), {"pdfs": [{"id": 2}]})
         self.assertEqual(admin_response.json(), {"pdfs": [{"id": 1}]})
-        get_user.assert_called_once_with("member")
-        get_all.assert_called_once_with()
+        self.assertEqual(member_documents.json(), {"documents": [{"id": 2}]})
+        self.assertEqual(admin_documents.json(), {"documents": [{"id": 1}]})
+        self.assertEqual(get_user.call_count, 2)
+        get_user.assert_called_with("member")
+        self.assertEqual(get_all.call_count, 2)
+        get_all.assert_called_with()
 
     def test_shared_vector_source_listing_filters_private_sources_for_members(self):
         sources = [
@@ -187,15 +199,19 @@ class SharedApiTests(unittest.TestCase):
         ):
             self.authenticate_as("member", "user")
             member_response = self.client.get("/vectordb/pdf")
+            member_documents = self.client.get("/vectordb/documents")
             self.authenticate_as("administrator", "admin")
             admin_response = self.client.get("/vectordb/pdf")
+            admin_documents = self.client.get("/vectordb/documents")
 
         self.assertEqual(len(member_response.json()["sources"]), 2)
         self.assertEqual(len(admin_response.json()["sources"]), 3)
+        self.assertEqual(member_documents.json(), member_response.json())
+        self.assertEqual(admin_documents.json(), admin_response.json())
 
     def test_ingestion_uses_the_same_routes_with_role_scoped_service_calls(self):
-        ingestion_service = StubPdfIngestionService()
-        app.dependency_overrides[get_pdf_ingestion_service] = lambda: ingestion_service
+        ingestion_service = StubDocumentIngestionService()
+        app.dependency_overrides[get_document_ingestion_service] = lambda: ingestion_service
 
         self.authenticate_as("member", "user")
         member_all = self.client.post("/vectordb/ingest/all")
@@ -217,6 +233,52 @@ class SharedApiTests(unittest.TestCase):
                 ("admin_one", (34,)),
             ],
         )
+
+    def test_generic_document_routes_alias_legacy_pdf_routes(self):
+        ingestion_service = StubDocumentIngestionService()
+        app.dependency_overrides[get_document_ingestion_service] = lambda: ingestion_service
+        self.authenticate_as("member", "user")
+
+        generic_list = self.client.get("/documents")
+        legacy_list = self.client.get("/pdf")
+        generic_ingest = self.client.post("/vectordb/ingest/document/12")
+        legacy_ingest = self.client.post("/vectordb/ingest/pdf/13")
+
+        self.assertEqual(generic_list.status_code, 200)
+        self.assertEqual(legacy_list.status_code, 200)
+        self.assertEqual(generic_ingest.status_code, 200)
+        self.assertEqual(legacy_ingest.status_code, 200)
+        self.assertEqual(
+            ingestion_service.calls,
+            [("user_one", (12, "member")), ("user_one", (13, "member"))],
+        )
+
+    def test_document_upload_accepts_supported_types_and_reports_rejected_files(self):
+        with tempfile.TemporaryDirectory() as directory:
+            uploads_dir = Path(directory)
+            (uploads_dir / "data").mkdir()
+            with (
+                patch("app.api.shared.documents.UPLOADS_DIR", uploads_dir),
+                patch("app.api.shared.documents.DATA_DIR", uploads_dir / "data"),
+                patch("app.api.shared.documents.add_pdf", return_value=42) as add_document,
+            ):
+                self.authenticate_as("member", "user")
+                response = self.client.post(
+                    "/documents/upload",
+                    files=[
+                        ("files", ("notes.md", b"# Notes\n\nA policy.", "text/markdown")),
+                        ("files", ("script.exe", b"not supported", "application/octet-stream")),
+                    ],
+                    data={"is_public": "0"},
+                )
+
+            self.assertEqual(response.status_code, 200)
+            payload = response.json()
+            self.assertEqual(payload["uploaded"], ["notes.md"])
+            self.assertEqual(payload["uploaded_documents"][0]["id"], 42)
+            self.assertEqual(payload["uploaded_pdfs"], payload["uploaded_documents"])
+            self.assertEqual(len(payload["errors"]), 1)
+            add_document.assert_called_once()
 
     def test_pdf_deletion_restricts_members_to_their_own_documents(self):
         deletion_service = StubPdfDeletionService()

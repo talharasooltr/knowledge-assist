@@ -3,6 +3,7 @@ from collections.abc import Iterable
 
 from langchain_core.documents import Document
 from sqlalchemy import delete, distinct, or_, select
+from sqlalchemy import func
 
 from app.core.json_types import JSONValue, normalize_json_value
 from app.infrastructure.db.models import IngestState, Pdf, PdfChunk
@@ -66,17 +67,71 @@ def get_pdf_sources() -> list[dict]:
 
 
 def retrieve_pdf_for_user(user_id: str, query: str, k: int = 3) -> list[Document]:
+    if k < 1:
+        return []
+
     query_embedding = get_embedding().embed_query(query)
+    candidate_limit = min(max(k * 4, 20), 100)
+    visibility_filter = or_(
+        PdfChunk.user_id == user_id,
+        PdfChunk.is_public.is_(True),
+    )
     with get_session() as session:
-        chunks = session.scalars(
+        base_query = (
             select(PdfChunk)
             .join(PdfChunk.pdf)
             .where(Pdf.deletion_requested.is_(False))
-            .where(or_(PdfChunk.user_id == user_id, PdfChunk.is_public.is_(True)))
+            .where(visibility_filter)
+        )
+        vector_chunks = session.scalars(
+            base_query
             .order_by(PdfChunk.embedding.cosine_distance(query_embedding))
-            .limit(k)
+            .limit(candidate_limit)
         ).all()
-        return [Document(page_content=chunk.content, metadata=chunk.metadata_ or {}) for chunk in chunks]
+        query_terms = func.websearch_to_tsquery("simple", query)
+        lexical_chunks = session.scalars(
+            base_query
+            .where(PdfChunk.search_vector.op("@@")(query_terms))
+            .order_by(
+                func.ts_rank_cd(PdfChunk.search_vector, query_terms).desc(),
+                PdfChunk.id,
+            )
+            .limit(candidate_limit)
+        ).all()
+
+        chunks = _reciprocal_rank_fusion(
+            [vector_chunks, lexical_chunks],
+            limit=k,
+        )
+        return [
+            Document(page_content=chunk.content, metadata=chunk.metadata_ or {})
+            for chunk in chunks
+        ]
+
+
+def _reciprocal_rank_fusion(
+    rankings: list[list[PdfChunk]],
+    limit: int,
+    rank_constant: int = 60,
+) -> list[PdfChunk]:
+    scores: dict[str, tuple[PdfChunk, float, int]] = {}
+    for ranking in rankings:
+        for rank, chunk in enumerate(ranking, start=1):
+            score = 1 / (rank_constant + rank)
+            current = scores.get(chunk.id)
+            if current is None:
+                scores[chunk.id] = (chunk, score, rank)
+            else:
+                scores[chunk.id] = (
+                    chunk,
+                    current[1] + score,
+                    min(current[2], rank),
+                )
+    ordered = sorted(
+        scores.values(),
+        key=lambda item: (-item[1], item[2], item[0].id),
+    )
+    return [chunk for chunk, _, _ in ordered[:limit]]
 
 
 def clear_pdf_by_user(user_id: str) -> None:

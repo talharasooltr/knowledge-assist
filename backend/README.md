@@ -1,12 +1,12 @@
 # Knowledge Assistant Backend
 
-A PDF-based Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, PostgreSQL, SQLAlchemy, and pgvector. PDF is the currently implemented ingestion source; other media sources are not implemented yet.
+A document-grounded Retrieval-Augmented Generation (RAG) API using FastAPI, LangChain, PostgreSQL, SQLAlchemy, and pgvector.
 
 ## Features
 
 - **User Management**: Admin and regular user authentication
-- **PDF Management**: Upload, ingest, list, and delete PDFs
-- **Vector Search**: PostgreSQL with pgvector and metadata-based access control
+- **Document Management**: Upload, ingest, list, and delete PDF, DOCX, PPTX, XLSX, TXT, Markdown, CSV/TSV, JSON, and HTML files
+- **Hybrid Search**: Fuse PostgreSQL full-text search and pgvector similarity with reciprocal-rank fusion
 - **Chat API**: Authenticated chat endpoints used by the Next.js frontend
 - **Multiple conversations**: Separate, persistent chat histories and context for each conversation
 
@@ -88,28 +88,32 @@ Run the backend commands below from the `backend/` directory.
 - **Admin Functions**:
   - View all users
   - Reset user passwords
-  - Manage all PDFs
+  - Manage all documents
   - Clear vector database
 
 - **Regular User Functions**:
-  - Upload PDFs
-  - Ingest PDFs manually
+  - Upload documents
+  - Ingest documents manually
   - Chat with their documents
-  - Delete their own PDFs
+  - Delete their own documents
 
-## PDF Management
+## Document Management
 
 ### Upload and Ingestion
 
-1. **Upload PDFs**: Files are stored in user-specific directories
-2. **Manual Ingestion**: Process PDFs to create vector embeddings
-3. **Metadata Preservation**: User information stored with embeddings
+1. **Upload documents**: Supported extensions are `.pdf`, `.docx`, `.pptx`, `.xlsx`, `.txt`, `.md`, `.markdown`, `.csv`, `.tsv`, `.json`, `.html`, and `.htm`. Legacy binary Office files (`.doc`, `.ppt`, `.xls`) are not supported. Files are stored in private or shared directories.
+2. **Format-aware extraction**: PDF pages, Office headings/slides/sheets, Markdown sections, and tabular rows are extracted into normalized text elements. Scanned PDFs without a text layer are rejected with an explicit OCR-not-enabled message.
+3. **Token-aware chunking**: Elements are split on paragraph and line boundaries with a 600-token target and 80-token overlap. Page ranges and section metadata are retained for citations.
+4. **Hybrid retrieval**: PostgreSQL full-text and pgvector cosine results are combined with reciprocal-rank fusion; document visibility remains owner/public scoped.
+5. **Metadata preservation**: Ownership, visibility, source format, and location metadata remain attached to chunks.
+
+After upgrading from the previous chunking strategy, reindex existing documents from the document library so they use the new chunks.
 
 ### File Operations
 
-- Upload PDFs to user directory
-- Ingest PDFs to vector database
-- Delete PDFs (files + database records + embeddings)
+- Upload documents to private or shared storage
+- Ingest documents to the vector database
+- Delete documents (files + database records + embeddings)
 - Clear all vector embeddings
 
 ## API Endpoints
@@ -119,16 +123,17 @@ The interactive API reference is available at `http://localhost:8000/docs` when 
 - Authentication: `POST /auth/login`, `GET /auth/session`, `POST /auth/logout`
 - The login endpoint resolves admin or member identity on the server; clients do not submit a role.
 - Shared chat: `GET /chat/conversations`, `POST /chat/conversations`, `GET /chat/conversations/{conversation_id}/messages`, `POST /chat/conversations/{conversation_id}/messages`, and `DELETE /chat/conversations/{conversation_id}`. Each conversation and message history is scoped to its authenticated owner.
-- Shared PDFs: `GET /pdf`, `POST /pdf/upload`, `DELETE /pdf/{pdf_id}`. Members see and delete only their own PDFs; admins can manage all PDFs.
-- Shared vector operations: `GET /vectordb/pdf`, `DELETE /vectordb/pdf`, `POST /vectordb/ingest/all`, `POST /vectordb/ingest/pdf/{pdf_id}`. Visibility and ingestion scope are determined by the authenticated role.
+- Shared documents: `GET /documents`, `POST /documents/upload`, `DELETE /documents/{document_id}`. Members see and delete only their own documents; admins can manage all documents. Legacy `/pdf` aliases remain available.
+- Shared vector operations: `GET /vectordb/documents`, `DELETE /vectordb/documents`, `POST /vectordb/ingest/documents`, and `POST /vectordb/ingest/document/{document_id}`. Visibility and ingestion scope are determined by the authenticated role. Legacy `/pdf` vector routes remain available.
 - Admin-only operations include `GET /admin/chat/history/{user_id}`, `DELETE /admin/pdf/public`, targeted vector cleanup, and user administration.
 - Existing chat history is migrated into one conversation per account; new conversations keep their own title, messages, and retrieval context.
-- Admins can explicitly override PDF indexing visibility through `/admin/vectordb/ingest/pdf/{pdf_id}/public` and `/admin/vectordb/ingest/pdf/{pdf_id}/private`.
+- Admins can explicitly override document indexing visibility through `/admin/vectordb/ingest/document/{document_id}/public` and `/admin/vectordb/ingest/document/{document_id}/private`.
 - Configure unique `ADMIN_USERNAME` and `ADMIN_PASSWORD` values; startup authentication fails closed if either is missing.
-- `MAX_PDF_UPLOAD_BYTES` defaults to 20 MiB per PDF. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.
+- `MAX_DOCUMENT_UPLOAD_BYTES` defaults to 20 MiB per file. `MAX_PDF_UPLOAD_BYTES` remains a supported legacy setting. Production deployments should also enforce request-size limits and HTTPS at the reverse proxy.
+- Apply Alembic migrations through `0008_hybrid_document_search` before using hybrid retrieval; it adds the generated full-text search vector and GIN index.
 - Set `CORS_ALLOWED_ORIGINS` to the exact frontend origins for the deployment; do not use wildcard origins with credentials.
 - Authentication uses revocable opaque server-side sessions in `HttpOnly` cookies and CSRF tokens for state-changing requests. Set `SESSION_COOKIE_SECURE=true` when serving over HTTPS.
-- Shared chat, PDF, and vector operations are exposed once and use the authenticated session to apply account/role scope.
+- Shared chat, document, and vector operations are exposed once and use the authenticated session to apply account/role scope.
 - Admin-only cross-account management and overrides are exposed under `/admin/...`.
 
 ## Project Structure
@@ -148,7 +153,7 @@ backend/
 │       ├── db/                 # SQLAlchemy session, models, repositories
 │       ├── parsers/            # File-format parsing adapters
 │       ├── providers/          # Chat and embedding provider adapters
-│       └── retrieval/          # Chat memory and PDF vector persistence
+│       └── retrieval/          # Chat memory, hybrid search, and document vectors
 ├── clients/                    # CLI and API helper clients
 │   ├── admin_tools.py
 │   ├── chat_client.py

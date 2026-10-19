@@ -1,8 +1,8 @@
 # Knowledge Assistant
 
-Knowledge Assistant is a document-grounded chat application. The current backend supports PDF upload, ingestion, vector search, and chat over uploaded documents. Images, web pages, URLs, and audio are future extensions, not currently implemented ingestion sources.
+Knowledge Assistant is a document-grounded chat application. The backend supports PDF, DOCX, PPTX, XLSX, TXT, Markdown, CSV/TSV, JSON, and HTML upload, ingestion, hybrid search, and chat over uploaded documents. Images, web pages, URLs, audio, OCR, and legacy binary Office files are future extensions, not currently implemented ingestion sources.
 
-Users can upload PDF documents and ask natural-language questions to retrieve relevant content and generate RAG-powered answers.
+Users can upload supported documents and ask natural-language questions to retrieve relevant content and generate RAG-powered answers.
 
 The platform provides separate experiences for regular users and administrators. Users can add and explore knowledge, while administrators can manage users, shared content, access, and system activity.
 
@@ -36,9 +36,9 @@ When asked about a pet policy that is not covered in the guide, the assistant sa
 
 ## What It Does
 
-- **Manage PDF knowledge**: Upload, ingest, list, and remove PDFs.
-- **Search by meaning**: Store document chunks and embeddings in PostgreSQL with pgvector.
-- **Ask grounded questions**: Retrieve relevant PDF content and use it as context for chat responses.
+- **Manage document knowledge**: Upload, ingest, list, and remove common document formats.
+- **Hybrid search**: Combine PostgreSQL full-text search with pgvector similarity over token-aware, structure-preserving chunks.
+- **Ask grounded questions**: Retrieve relevant document content and cite page ranges or sections in chat responses.
 - **Keep conversations separate**: Create multiple chats with independent histories and retrieval context.
 - **Separate private and shared content**: Apply user/public metadata to document retrieval.
 - **Manage users and chat history**: Provide separate user and administrator API operations.
@@ -49,8 +49,8 @@ Knowledge Assistant is useful for teams and individuals who need question answer
 
 ## How It Works
 
-1. Upload a PDF through the API or frontend.
-2. Ingest it to extract text, split it into chunks, and create embeddings.
+1. Upload a supported document through the API or frontend.
+2. Ingest it through a format-specific extractor, normalize its structure, split text into token-aware chunks, and create embeddings.
 3. Ask a question in natural language.
 4. The backend retrieves relevant chunks and passes them to the configured chat model.
 

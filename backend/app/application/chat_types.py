@@ -8,6 +8,8 @@ class CitationData(TypedDict):
     number: int
     filename: str
     page: int | None
+    page_end: int | None
+    section: str | None
 
 
 class ChatHistoryEntry(TypedDict):

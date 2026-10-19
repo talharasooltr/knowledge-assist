@@ -1,8 +1,8 @@
 from datetime import datetime
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Boolean, CheckConstraint, DateTime, ForeignKey, Index, Integer, String, Text, false, func
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import Boolean, CheckConstraint, Computed, DateTime, ForeignKey, Index, Integer, String, Text, false, func
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 from app.core.config import EMBEDDING_DIMENSION
@@ -79,12 +79,20 @@ class IngestState(Base):
 
 class PdfChunk(Base):
     __tablename__ = "pdf_chunks"
+    __table_args__ = (
+        Index("ix_pdf_chunks_search_vector", "search_vector", postgresql_using="gin"),
+    )
 
     id: Mapped[str] = mapped_column(String(64), primary_key=True)
     pdf_id: Mapped[int] = mapped_column(
         ForeignKey("pdfs.id", ondelete="CASCADE"), nullable=False, index=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
+    search_vector: Mapped[str] = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('simple', content)", persisted=True),
+        nullable=False,
+    )
     embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
     source: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)
     filename: Mapped[str | None] = mapped_column(String(512), nullable=True, index=True)

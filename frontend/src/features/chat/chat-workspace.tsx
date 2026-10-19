@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { apiRequest } from "@/lib/api";
 import { useConversations } from "@/features/chat/conversation-context";
 
-type Citation = { number: number; filename: string; page: number | null };
+type Citation = {
+  number: number;
+  filename: string;
+  page: number | null;
+  page_end?: number | null;
+  section?: string | null;
+};
 type Message = { role: "user" | "assistant"; content: string; citations?: Citation[] };
 
 function renderAnswer(content: string, citations: Citation[], messageIndex: number) {
@@ -189,10 +195,16 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
                     <span
                       className="citation-item"
                       id={`citation-${index}-${citation.number}`}
-                      key={`${citation.number}-${citation.filename}-${citation.page}`}
+                      key={`${citation.number}-${citation.filename}-${citation.page}-${citation.section ?? ""}`}
                     >
                       <span className="citation-number">[{citation.number}]</span>
-                      <span>{citation.filename}{citation.page ? ` · p. ${citation.page}` : ""}</span>
+                      <span>
+                        {citation.filename}
+                        {citation.page
+                          ? ` · p. ${citation.page}${citation.page_end && citation.page_end !== citation.page ? `–${citation.page_end}` : ""}`
+                          : ""}
+                        {citation.section ? ` · ${citation.section}` : ""}
+                      </span>
                     </span>
                   ))}
                 </div>

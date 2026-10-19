@@ -55,11 +55,11 @@ class ChatService:
             raise ConversationNotFoundError(conversation_id)
 
         memories = self._retrieve_memory(user_id, conversation_id, message, 3)
-        documents = self._retrieve_documents(user_id, message, 3)
+        documents = self._retrieve_documents(user_id, message, 5)
 
         memory_text = "\n".join(document.page_content for document in memories)
         citations: list[CitationData] = []
-        citation_numbers: dict[tuple[str, int | None], int] = {}
+        citation_numbers: dict[tuple[str, int | None, int | None, str | None], int] = {}
         document_sections = []
         for document in documents:
             metadata = document.metadata or {}
@@ -70,24 +70,50 @@ class ChatService:
                 "Document",
             )
             page_value = metadata.get("page")
-            if isinstance(page_value, int) and not isinstance(page_value, bool):
-                page = page_value + 1
-            elif isinstance(page_value, str):
+            page_start_value = metadata.get("page_start", page_value)
+            page_end_value = metadata.get("page_end", page_start_value)
+            if isinstance(page_start_value, int) and not isinstance(page_start_value, bool):
+                page = page_start_value + 1
+            elif isinstance(page_start_value, str):
                 try:
-                    page = int(page_value) + 1
+                    page = int(page_start_value) + 1
                 except ValueError:
                     page = None
             else:
                 page = None
+            if isinstance(page_end_value, int) and not isinstance(page_end_value, bool):
+                page_end = page_end_value + 1
+            elif isinstance(page_end_value, str):
+                try:
+                    page_end = int(page_end_value) + 1
+                except ValueError:
+                    page_end = None
+            else:
+                page_end = None
+            if page_end == page:
+                page_end = None
 
-            key = (filename, page)
+            section_value = metadata.get("section")
+            section = section_value if isinstance(section_value, str) and section_value else None
+
+            key = (filename, page, page_end, section)
             if key not in citation_numbers:
                 citation_numbers[key] = len(citations) + 1
-                citations.append({"number": len(citations) + 1, "filename": filename, "page": page})
+                citation: CitationData = {
+                    "number": len(citations) + 1,
+                    "filename": filename,
+                    "page": page,
+                    "page_end": page_end,
+                    "section": section,
+                }
+                citations.append(citation)
             number = citation_numbers[key]
-            page_label = f", page {page}" if page is not None else ""
+            page_label = ""
+            if page is not None:
+                page_label = f", pages {page}-{page_end}" if page_end else f", page {page}"
+            section_label = f", section {section}" if section else ""
             document_sections.append(
-                f"[{number}] {filename}{page_label}\n{document.page_content}"
+                f"[{number}] {filename}{page_label}{section_label}\n{document.page_content}"
             )
         document_text = "\n\n".join(document_sections)
         prompt = f"""

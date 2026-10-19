@@ -4,19 +4,19 @@ from unittest.mock import Mock
 
 from langchain_core.documents import Document
 
-from app.application.pdf_ingestion import PdfIngestionService
+from app.application.document_ingestion import DocumentIngestionService
 
 
-class PdfIngestionTests(unittest.TestCase):
-    def test_process_pdf_assigns_access_metadata_and_persists_chunks(self):
-        document = Document(page_content="PDF text", metadata={})
+class DocumentIngestionTests(unittest.TestCase):
+    def test_process_document_assigns_access_metadata_and_persists_chunks(self):
+        document = Document(page_content="document text", metadata={})
         insert_chunks = Mock()
         record_ingestion = Mock()
-        service = PdfIngestionService(
+        service = DocumentIngestionService(
             upload_directory=Path("/tmp/uploads"),
-            get_all_pdfs=lambda: [],
-            get_pdfs_by_user=lambda user_id: [],
-            parse_pdf=lambda file_path: [document],
+            get_all_documents=lambda: [],
+            get_documents_by_user=lambda user_id: [],
+            parse_document=lambda file_path: [document],
             save_chunks=insert_chunks,
             record_ingestion=record_ingestion,
         )
@@ -30,6 +30,7 @@ class PdfIngestionTests(unittest.TestCase):
                 "filename": "report.pdf",
                 "source": "report.pdf",
                 "is_public": 0,
+                "file_format": "pdf",
                 "pdf_id": 42,
             },
         )
@@ -37,11 +38,11 @@ class PdfIngestionTests(unittest.TestCase):
         record_ingestion.assert_called_once_with("report.pdf", "casey", 0, 42)
 
     def test_ingestion_errors_are_propagated(self):
-        service = PdfIngestionService(
+        service = DocumentIngestionService(
             upload_directory=Path("/tmp/uploads"),
-            get_all_pdfs=lambda: [],
-            get_pdfs_by_user=lambda user_id: [],
-            parse_pdf=Mock(side_effect=RuntimeError("Embedding failed")),
+            get_all_documents=lambda: [],
+            get_documents_by_user=lambda user_id: [],
+            parse_document=Mock(side_effect=RuntimeError("Embedding failed")),
             save_chunks=Mock(),
             record_ingestion=Mock(),
         )
@@ -49,7 +50,7 @@ class PdfIngestionTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Embedding failed"):
             service._try_ingest(Path("report.pdf"), "report.pdf", "casey", False, 42)
 
-    def test_ingest_by_pdf_id_preserves_identity_for_duplicate_filenames(self):
+    def test_ingest_by_document_id_preserves_identity_for_duplicate_filenames(self):
         document = Document(page_content="PDF text", metadata={})
         pdf = {
             "id": 42,
@@ -61,20 +62,21 @@ class PdfIngestionTests(unittest.TestCase):
         }
         save_chunks = Mock()
         record_ingestion = Mock()
-        parse_pdf = Mock(return_value=[document])
-        service = PdfIngestionService(
+        parse_document = Mock(return_value=[document])
+        service = DocumentIngestionService(
             upload_directory=Path("/tmp/uploads"),
-            get_all_pdfs=lambda: [pdf, {**pdf, "id": 43, "filepath": "other/unique.pdf"}],
-            get_pdfs_by_user=lambda user_id: [pdf, {**pdf, "id": 43, "filepath": "casey/another.pdf"}],
-            parse_pdf=parse_pdf,
+            get_all_documents=lambda: [pdf, {**pdf, "id": 43, "filepath": "other/unique.pdf"}],
+            get_documents_by_user=lambda user_id: [pdf, {**pdf, "id": 43, "filepath": "casey/another.pdf"}],
+            parse_document=parse_document,
             save_chunks=save_chunks,
             record_ingestion=record_ingestion,
         )
 
-        service.ingest_user_pdf_by_id(42, "casey")
+        service.ingest_user_document_by_id(42, "casey")
 
-        parse_pdf.assert_called_once_with(Path("/tmp/uploads/data/casey/unique.pdf"))
+        parse_document.assert_called_once_with(Path("/tmp/uploads/data/casey/unique.pdf"))
         self.assertEqual(document.metadata["pdf_id"], 42)
+        self.assertEqual(document.metadata["file_format"], "pdf")
         save_chunks.assert_called_once_with([document])
         record_ingestion.assert_called_once_with("report.pdf", "casey", 0, 42)
 
