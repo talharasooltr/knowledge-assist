@@ -54,6 +54,40 @@ Knowledge Assistant is useful for teams and individuals who need question answer
 3. Ask a question in natural language.
 4. The backend retrieves relevant chunks and passes them to the configured chat model.
 
+## Architecture
+
+The root diagram shows the main runtime and data flows. The [backend README](backend/README.md) documents the backend layers and implementation details.
+
+```mermaid
+flowchart LR
+    user([User or administrator]) --> web[Next.js web app]
+    web -->|Session-authenticated API requests| api[FastAPI API]
+
+    subgraph ingestion["Document ingestion"]
+        api --> upload[Validate and store upload]
+        upload -->|Original file| files[(Document file storage)]
+        upload --> parser[Format-specific parsers]
+        parser --> chunks[Normalize structure and create token-aware chunks]
+        chunks --> embed[Embedding provider]
+        embed -->|Chunk embeddings| db[(PostgreSQL)]
+    end
+
+    subgraph chat["Grounded chat"]
+        api --> question[Question and conversation]
+        question --> queryEmbed[Embed question]
+        queryEmbed --> retrieval[Hybrid retrieval<br/>pgvector + full-text, fused with RRF]
+        db -->|Relevant chunks| retrieval
+        retrieval --> context[Context with source locations]
+        context --> model[Chat model provider]
+        model --> answer[Grounded answer with citations]
+        answer --> api
+    end
+
+    api <-->|Users, sessions, conversations,<br/>document metadata and chunks| db
+```
+
+The embedding and chat model providers can be configured for OpenAI or Azure OpenAI. PostgreSQL stores both vector embeddings and the full-text search index used during retrieval.
+
 ## Project Areas
 
 ```
