@@ -29,7 +29,6 @@ function renderAnswer(content: string, citations: Citation[], messageIndex: numb
 export function ChatWorkspace({ conversationId }: { conversationId: string | null }) {
   const router = useRouter();
   const {
-    conversations,
     createConversation,
     refreshConversations,
     setActiveConversationId,
@@ -78,9 +77,6 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
   const historyLoadFailed = conversationId !== null
     && historyFailedConversationId === conversationId;
   const loadingHistory = conversationId !== null && !historyIsCurrent && !historyLoadFailed;
-  const title = conversations.find((item) => item.id === conversationId)?.title
-    ?? (conversationId ? "Chat" : "New chat");
-
   async function sendMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const message = question.trim();
@@ -153,9 +149,6 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
 
   return (
     <>
-      <header className="chat-toolbar">
-        <h1>{title}</h1>
-      </header>
       {error && <div className="error" role="alert">{error}</div>}
       <section className="chat-panel">
         <div className="chat-list" aria-live="polite">
@@ -221,8 +214,21 @@ export function ChatWorkspace({ conversationId }: { conversationId: string | nul
             rows={1}
             disabled={loadingHistory || historyLoadFailed || busy}
           />
-          <button className="primary" disabled={busy || loadingHistory || historyLoadFailed || !question.trim()}>
-            {busy ? "Thinking..." : "Ask"}
+          <button
+            aria-label={busy ? "Thinking..." : "Send message"}
+            className="chat-send"
+            disabled={busy || loadingHistory || historyLoadFailed || !question.trim()}
+            type="submit"
+          >
+            <svg aria-hidden="true" fill="none" height="18" viewBox="0 0 24 24" width="18">
+              <path
+                d="M12 19V5m-7 7 7-7 7 7"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              />
+            </svg>
           </button>
         </form>
       </section>

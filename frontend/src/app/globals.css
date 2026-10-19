@@ -328,21 +328,8 @@ a {
   overflow: hidden;
 }
 
-.chat-toolbar {
-  width: 100%;
-  max-width: 820px;
-  margin: 0 auto;
-  padding: 0 6px 16px;
-}
-
-.chat-toolbar h1 {
-  overflow: hidden;
-  margin: 0;
-  color: var(--color-ink);
-  font-size: .95rem;
-  font-weight: 550;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.main.main-chat {
+  padding-top: 0;
 }
 
 .main-documents,
@@ -513,7 +500,7 @@ a {
   gap: 10px;
   margin: 18px auto 0;
   padding: 7px;
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--color-border);
   border-radius: 16px;
   background: var(--color-surface);
   box-shadow: var(--shadow-soft);
@@ -527,7 +514,7 @@ a {
   min-height: 42px;
   max-height: 140px;
   flex: 1;
-  resize: vertical;
+  resize: none;
   padding: 11px 10px;
   border: 0;
   outline: 0;
@@ -540,23 +527,30 @@ a {
   outline: 0;
 }
 
-.primary {
+.chat-send {
+  display: grid;
+  width: 40px;
   min-height: 40px;
-  padding: 0 16px;
+  flex: 0 0 40px;
+  place-items: center;
+  padding: 0;
   border: 0;
-  border-radius: 10px;
+  border-radius: 50%;
   background: var(--color-accent);
   color: white;
-  font-size: .84rem;
-  font-weight: 600;
   transition: background-color .15s ease, transform .15s ease;
 }
 
-.primary:hover:not(:disabled) {
+.chat-send:hover:not(:disabled) {
   background: var(--color-accent-hover);
 }
 
-.primary:active:not(:disabled) {
+.chat-send:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.chat-send:active:not(:disabled) {
   transform: scale(.98);
 }
 
@@ -982,9 +976,10 @@ a {
     font-size: .88rem;
   }
 
-  .chat-form .primary {
+  .chat-form .chat-send {
     min-height: 38px;
-    padding-inline: 12px;
+    width: 38px;
+    flex-basis: 38px;
   }
 
   .card {
